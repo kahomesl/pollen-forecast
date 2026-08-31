@@ -7,6 +7,10 @@ import { findCityByChineseName, findNearestMajorCity, getCityOptions, majorCitie
 import { createAllergenV1Api } from "./api/allergenV1";
 import { PollenObservationRepository, type PollenObservationSql } from "./repositories/PollenObservationRepository";
 import { ObservationStore } from "./services/ObservationStore";
+import { PollenScheduler } from "./services/PollenScheduler";
+import { PollenSyncService } from "./services/PollenSyncService";
+import { pollenProviders } from "./providers/providerRegistry";
+import { SyncRunRepository, type PollenSyncRunSql } from "./repositories/SyncRunRepository";
 import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
 
@@ -14,9 +18,18 @@ const port = process.env.PORT ?? 8080;
 const staticDir = path.join(__dirname, '../../frontend/dist');
 const observationRepository = new PollenObservationRepository(sql as unknown as PollenObservationSql);
 const observationStore = new ObservationStore(observationRepository);
+const syncRunRepository = new SyncRunRepository(sql as unknown as PollenSyncRunSql);
+const pollenSyncService = new PollenSyncService({
+  providers: pollenProviders,
+  observationStore,
+  syncRunRepository,
+});
+const pollenScheduler = new PollenScheduler({ syncService: pollenSyncService });
 
 // Initialize DB before starting server
 await initDB();
+// The optional scheduler waits for its first interval; legacy startup scraping remains unchanged.
+pollenScheduler.start();
 // Start initial scrape after DB is ready
 runScrape().catch(console.error);
 
