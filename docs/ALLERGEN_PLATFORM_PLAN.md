@@ -1150,3 +1150,24 @@ OBSERVATION / CURRENT / FORECAST / ESTIMATE 及可空时间字段。当前接口
 
 现阶段 schema 由 additive initialization 建立。生产环境需要在引入破坏性变更前
 迁移到正式 migration system。
+
+---
+
+## 31. Phase 2B 后台同步与 API 契约
+
+Phase 2B 新增独立的 `PollenSyncService` 和一次性 CLI。它直接遍历 canonical
+locations，使用 Provider 的 `supportsLocation()` 选择位置，再将标准化
+`PollenObservation` 写入 `pollen_observations`。它不通过 HTTP 调用自身 API，也不
+依赖用户访问 API；legacy `runScrape()`、`pollen_data` 和 `/api/pollen` 继续并存。
+
+同步默认不启动永久 scheduler。`bun run sync:pollen` 执行一次完整同步；只有显式
+设置 `POLLEN_BACKGROUND_SYNC_ENABLED=true` 时才启用本地 scheduler，默认间隔 60
+分钟且不在启动时立即全量同步。并发默认 3、最大 10；Provider 单请求默认 timeout
+10 秒；网络错误、timeout 和 5xx 至多额外 retry 一次。scheduler 在同一进程内跳过
+重叠运行，生产多实例优先使用外部 cron/scheduler 调用单次 job。
+
+新增 `pollen_sync_runs` 作为 additive 运行状态表，以及只读
+`GET /api/v1/sync/status`。API v1 的完整路径、参数、错误码和 Observation JSON
+见 [`API_V1.md`](./API_V1.md)。Observation 的 `retrievedAt` 等于 `updatedAt`，
+表示平台最近一次从 Provider 获取并标准化该记录的时间，不表示真实观测时间或预报
+有效期；本阶段不推断 `stale`。

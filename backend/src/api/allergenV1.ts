@@ -6,6 +6,8 @@ import { getTaxonByCode, TAXON_DEFINITIONS } from "../domain/taxon";
 import { pollenProviders } from "../providers/providerRegistry";
 import type { PollenProvider } from "../providers/PollenProvider";
 import type { PollenObservationRepository } from "../repositories/PollenObservationRepository";
+import type { SyncRunRepository } from "../repositories/SyncRunRepository";
+import type { PollenSyncRun } from "../domain/pollenSyncRun";
 import { queryLocationAllergens } from "../services/allergenQueryService";
 import type { ObservationStore } from "../services/ObservationStore";
 
@@ -13,12 +15,14 @@ export interface AllergenV1ApiOptions {
   readonly providers?: readonly PollenProvider[];
   readonly observationStore?: Pick<ObservationStore, "persist">;
   readonly observationRepository?: Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+  readonly syncRunRepository?: Pick<SyncRunRepository, "getLatestRun">;
 }
 
 export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
   const providers = options.providers ?? pollenProviders;
   const observationStore = options.observationStore;
   const observationRepository = options.observationRepository;
+  const syncRunRepository = options.syncRunRepository;
 
   return new Elysia()
     .get("/api/v1/allergens", () => TAXON_DEFINITIONS)
@@ -29,6 +33,9 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
       supportedTaxa: provider.supportedTaxa,
     })))
     .get("/api/v1/locations", () => LOCATION_DEFINITIONS.map(toPublicLocation))
+    .get("/api/v1/sync/status", async () => ({
+      latestRun: syncRunRepository ? await syncRunRepository.getLatestRun().then(serializeSyncRun) : null,
+    }))
     .get("/api/v1/locations/:locationId/history", async ({ params, query, set }) => {
       const location = getLocationById(params.locationId);
       if (!location) return notFound(set, "LOCATION_NOT_FOUND", "Unknown location");
@@ -137,9 +144,26 @@ function serializeObservation(observation: PollenObservation) {
       ...(observation.observedAt ? { observedAt: observation.observedAt.toISOString() } : {}),
       ...(observation.validFrom ? { validFrom: observation.validFrom.toISOString() } : {}),
       ...(observation.validTo ? { validTo: observation.validTo.toISOString() } : {}),
+      retrievedAt: observation.updatedAt.toISOString(),
       createdAt: observation.createdAt.toISOString(),
       updatedAt: observation.updatedAt.toISOString(),
     },
+  };
+}
+
+function serializeSyncRun(run: PollenSyncRun | null) {
+  if (!run) return null;
+
+  return {
+    status: run.status,
+    startedAt: run.startedAt.toISOString(),
+    ...(run.finishedAt ? { finishedAt: run.finishedAt.toISOString() } : {}),
+    trigger: run.trigger,
+    locationsAttempted: run.locationsAttempted,
+    locationsSucceeded: run.locationsSucceeded,
+    locationsFailed: run.locationsFailed,
+    observationsReceived: run.observationsReceived,
+    observationsPersisted: run.observationsPersisted,
   };
 }
 

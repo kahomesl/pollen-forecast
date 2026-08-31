@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { PollenProvider } from "../providers/PollenProvider";
 import type { PollenObservation } from "../domain/pollenObservation";
 import type { PollenObservationRepository } from "../repositories/PollenObservationRepository";
+import type { SyncRunRepository } from "../repositories/SyncRunRepository";
 import type { ObservationStore } from "../services/ObservationStore";
 import { createAllergenV1Api } from "./allergenV1";
 
@@ -12,6 +13,7 @@ async function responseFor(
   options: {
     observationStore?: Pick<ObservationStore, "persist">;
     observationRepository?: Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+    syncRunRepository?: Pick<SyncRunRepository, "getLatestRun">;
   } = {},
 ) {
   const response = await createAllergenV1Api({ providers, ...options }).handle(new Request(`http://localhost${path}`));
@@ -102,6 +104,7 @@ describe("allergen v1 API", () => {
       source: { name: "WeatherDT", url: "https://example.test/weatherdt" },
       confidence: 3,
       time: {
+        retrievedAt: "2026-08-31T00:00:00.000Z",
         createdAt: "2026-08-31T00:00:00.000Z",
         updatedAt: "2026-08-31T00:00:00.000Z",
       },
@@ -268,5 +271,83 @@ describe("allergen v1 API", () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: { code: "INVALID_LIMIT", message: "limit must be an integer from 1 to 500" } });
+  });
+
+  test("returns a stable sync status shape and null when no run repository is configured", async () => {
+    const empty = await responseFor("/api/v1/sync/status");
+
+    expect(empty.response.status).toBe(200);
+    expect(empty.body).toEqual({ latestRun: null });
+  });
+
+  test("serializes the latest sync run without exposing internal error details", async () => {
+    const latestRun = {
+      id: 7,
+      startedAt: new Date("2026-08-31T00:00:00.000Z"),
+      finishedAt: new Date("2026-08-31T00:00:05.000Z"),
+      status: "PARTIAL" as const,
+      trigger: "SCHEDULED" as const,
+      locationsAttempted: 58,
+      locationsSucceeded: 57,
+      locationsFailed: 1,
+      observationsReceived: 41,
+      observationsPersisted: 41,
+      createdAt: new Date("2026-08-31T00:00:00.000Z"),
+    };
+    const { response, body } = await responseFor("/api/v1/sync/status", [], {
+      syncRunRepository: { getLatestRun: async () => latestRun },
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      latestRun: {
+        status: "PARTIAL",
+        startedAt: "2026-08-31T00:00:00.000Z",
+        finishedAt: "2026-08-31T00:00:05.000Z",
+        trigger: "SCHEDULED",
+        locationsAttempted: 58,
+        locationsSucceeded: 57,
+        locationsFailed: 1,
+        observationsReceived: 41,
+        observationsPersisted: 41,
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("error");
+  });
+
+  test("keeps the Android v1 collection and provider response shapes explicit", async () => {
+    const provider: PollenProvider = {
+      id: "weatherdt",
+      name: "WeatherDT",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+      supportsLocation: (locationId) => locationId === "cn-city-beijing",
+      fetchCurrent: async () => [],
+    };
+
+    const allergens = await responseFor("/api/v1/allergens");
+    const providers = await responseFor("/api/v1/providers", [provider]);
+    const locations = await responseFor("/api/v1/locations");
+    const locationAllergens = await responseFor("/api/v1/locations/cn-city-beijing/allergens", [provider]);
+    const artemisia = await responseFor("/api/v1/locations/cn-beijing-chaoyang/allergens/ARTEMISIA", [provider]);
+
+    expect(allergens.body[0]).toMatchObject({ code: "ARTEMISIA", nameCn: "蒿属", nameEn: "Artemisia", scope: "GENUS" });
+    expect(providers.body[0]).toEqual({
+      id: "weatherdt",
+      name: "WeatherDT",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+    });
+    expect(locations.body[0]).toEqual(expect.objectContaining({ id: "cn-city-beijing", scope: "CITY" }));
+    expect(locationAllergens.body).toEqual(expect.objectContaining({
+      location: expect.objectContaining({ id: "cn-city-beijing" }),
+      observations: expect.any(Array),
+      providersWithErrors: expect.any(Array),
+    }));
+    expect(artemisia.body).toEqual(expect.objectContaining({
+      location: expect.objectContaining({ id: "cn-beijing-chaoyang" }),
+      observations: expect.any(Array),
+      providersWithErrors: expect.any(Array),
+    }));
   });
 });
