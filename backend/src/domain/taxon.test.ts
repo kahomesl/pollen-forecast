@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ARTEMISIA, type TaxonScope } from "./taxon";
+import { ARTEMISIA, TAXON_DEFINITIONS, type TaxonScope } from "./taxon";
 
 // @ts-expect-error "ORDER" is not a supported TaxonScope.
 const invalidTaxonScope: TaxonScope = "ORDER";
@@ -16,5 +16,6 @@ describe("taxon definitions", () => {
     expect(ARTEMISIA.aliases).toContain("Mugwort");
     expect(ARTEMISIA.aliases).toContain("蒿属");
     expect(ARTEMISIA.aliases).toContain("菊科蒿属");
+    expect(TAXON_DEFINITIONS).toEqual([ARTEMISIA]);
   });
 });

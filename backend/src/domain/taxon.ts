@@ -22,3 +22,5 @@ export const ARTEMISIA: TaxonDefinition = {
   aliases: ["Artemisia", "Mugwort", "蒿属", "菊科蒿属"],
   scope: "GENUS",
 };
+
+export const TAXON_DEFINITIONS: readonly TaxonDefinition[] = [ARTEMISIA];
