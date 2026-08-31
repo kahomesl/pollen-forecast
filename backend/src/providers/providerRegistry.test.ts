@@ -9,7 +9,7 @@ test("provider registry exposes only normalized provider metadata", () => {
     "beijing-pollen",
   ]);
   expect(pollenProviders.map((provider) => provider.capabilities)).toEqual([
-    ["TOTAL_OBSERVATION", "TOTAL_FORECAST", "HISTORY"],
+    ["TOTAL_CURRENT", "TOTAL_FORECAST", "HISTORY"],
     ["TOTAL_ESTIMATE"],
     ["GENUS_FORECAST"],
   ]);
