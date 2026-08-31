@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { LocationDefinition } from "../domain/location";
 import type { PollenObservation } from "../domain/pollenObservation";
+import type { CompletePollenSyncRunInput } from "../domain/pollenSyncRun";
 import type { PollenProvider } from "../providers/PollenProvider";
 import {
   PollenSyncService,
@@ -42,9 +43,9 @@ function createRunRepository() {
       observationsPersisted: 0,
       createdAt: startedAt,
     }),
-    completeRun: async (_id: number, input: unknown) => {
+    completeRun: async (_id: number, input: CompletePollenSyncRunInput) => {
       completed.push(input);
-      return { id: 1, ...input };
+      return { id: 1, startedAt: new Date(), createdAt: new Date(), trigger: "MANUAL" as const, ...input };
     },
   };
 }
