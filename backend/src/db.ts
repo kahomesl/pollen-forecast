@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { initializePollenObservationSchema, type SqlExecutor } from './db/pollenObservationSchema';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -57,6 +58,8 @@ export async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_pollen_ratings_city_date
     ON pollen_ratings (city_en, date)
   `;
+
+  await initializePollenObservationSchema(sql as unknown as SqlExecutor);
 
   console.log('Database tables initialized.');
 }
