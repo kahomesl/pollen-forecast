@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { initializePollenObservationSchema, type SqlExecutor } from './db/pollenObservationSchema';
+import { initializePollenSyncRunSchema } from './db/pollenSyncRunSchema';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -60,6 +61,7 @@ export async function initDB() {
   `;
 
   await initializePollenObservationSchema(sql as unknown as SqlExecutor);
+  await initializePollenSyncRunSchema(sql as unknown as SqlExecutor);
 
   console.log('Database tables initialized.');
 }
