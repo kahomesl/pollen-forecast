@@ -6,13 +6,14 @@ import {
   haversineDistance,
   majorCities,
 } from './cityDirectory';
+import { formatChinaDate } from './time/chinaDate';
 
 export async function scrapeSingleCity(cityEn: string, cityCn: string): Promise<void> {
   const today = new Date();
-  const endDate = today.toISOString().split('T')[0];
+  const endDate = formatChinaDate(today);
   const past = new Date(today);
   past.setDate(past.getDate() - 7);
-  const startDate = past.toISOString().split('T')[0];
+  const startDate = formatChinaDate(past);
   const city: CityDef = { en: cityEn, cn: cityCn, id: 0, tier: 2, lat: 0, lng: 0 };
   await fetchPollenData(city, startDate, endDate);
 }
@@ -211,10 +212,10 @@ export const runScrape = async () => {
 
   isScraping = true;
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatChinaDate(today);
   const past = new Date(today);
   past.setDate(past.getDate() - 7);
-  const pastStr = past.toISOString().split('T')[0];
+  const pastStr = formatChinaDate(past);
 
   // --- Phase 1: P0 weatherdt (primary source for all cities) ---
   console.log("[Phase 1] P0 weatherdt scrape starting...");

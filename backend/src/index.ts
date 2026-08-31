@@ -4,6 +4,7 @@ import { cors } from "@elysiajs/cors";
 import sql, { initDB } from "./db";
 import { runScrape, getScrapingStatus, scrapeSingleCity } from "./scraper";
 import { findCityByChineseName, findNearestMajorCity, getCityOptions, majorCities } from "./cityDirectory";
+import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
 
 const port = process.env.PORT ?? 8080;
@@ -38,7 +39,7 @@ const app = new Elysia()
       return { error: "Invalid coordinates" };
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatChinaDate();
     const { city: nearest, distance } = findNearestMajorCity(lat, lng);
 
     // If user is close to a known city, return it directly
@@ -105,7 +106,7 @@ const app = new Elysia()
   .get("/api/pollen", async () => {
     runScrape().catch(console.error);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatChinaDate();
     const data = await sql`
       SELECT city_cn as city, city_en, date, level_code as "levelCode", level_name as level, color, msg, source
       FROM pollen_data
@@ -136,7 +137,7 @@ const app = new Elysia()
       return { error: "Score must be integer 1-5" };
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatChinaDate();
     await sql`
       INSERT INTO pollen_ratings (city_en, date, score, fingerprint)
       VALUES (${city_en}, ${today}, ${score}, ${fingerprint})
@@ -158,7 +159,7 @@ const app = new Elysia()
   })
   // Get rating summary for a city today
   .get("/api/ratings/:city", async ({ params: { city } }) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatChinaDate();
     const summary = await sql`
       SELECT
         COUNT(*)::int as count,
