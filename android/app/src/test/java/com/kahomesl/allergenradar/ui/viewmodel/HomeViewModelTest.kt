@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import java.io.IOException
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,33 +60,48 @@ class HomeViewModelTest {
         assertEquals("当前指数", measurementLabel("CURRENT"))
     }
 
+    @Test
+    fun totalRequestFailureUsesSafeNetworkMessage() = runTest {
+        val viewModel = HomeViewModel(
+            FakeRepository(totalFailure = IOException("CLEARTEXT communication to 10.0.2.2 not permitted")),
+            FakePreference(),
+        )
+
+        assertEquals("网络连接暂时不可用，请检查网络后重试。", viewModel.state.value.errorMessage)
+    }
+
     private class FakePreference : LocationPreference {
         override val selectedLocationId: Flow<String> = MutableStateFlow("cn-city-beijing")
         override suspend fun setSelectedLocationId(locationId: String) = Unit
     }
 
-    private class FakeRepository : AllergenRepository {
+    private class FakeRepository(
+        private val totalFailure: Throwable? = null,
+    ) : AllergenRepository {
         override suspend fun getAllergens() = emptyList<AllergenDto>()
         override suspend fun getProviders() = emptyList<ProviderDto>()
         override suspend fun getLocations() = emptyList<LocationDto>()
-        override suspend fun getLocationAllergens(locationId: String) = LocationAllergenResponseDto(
-            location = LocationDto(locationId, "北京", "CITY"),
-            observations = listOf(
-                ObservationDto(
-                    id = "total-current",
-                    locationId = locationId,
-                    scope = "TOTAL",
-                    measurementType = "CURRENT",
-                    unit = "level",
-                    risk = com.kahomesl.allergenradar.data.RiskDto(level = 4),
-                    provider = "weatherdt",
-                    source = SourceDto("WeatherDT"),
-                    confidence = 3,
-                    time = ObservationTimeDto("2026-08-31T08:10:00.000Z"),
+        override suspend fun getLocationAllergens(locationId: String): LocationAllergenResponseDto {
+            totalFailure?.let { throw it }
+            return LocationAllergenResponseDto(
+                location = LocationDto(locationId, "北京", "CITY"),
+                observations = listOf(
+                    ObservationDto(
+                        id = "total-current",
+                        locationId = locationId,
+                        scope = "TOTAL",
+                        measurementType = "CURRENT",
+                        unit = "level",
+                        risk = com.kahomesl.allergenradar.data.RiskDto(level = 4),
+                        provider = "weatherdt",
+                        source = SourceDto("WeatherDT"),
+                        confidence = 3,
+                        time = ObservationTimeDto("2026-08-31T08:10:00.000Z"),
+                    ),
                 ),
-            ),
-            providersWithErrors = listOf("beijing-pollen"),
-        )
+                providersWithErrors = listOf("beijing-pollen"),
+            )
+        }
 
         override suspend fun getLocationTaxon(locationId: String, taxon: String) = LocationAllergenResponseDto(
             location = LocationDto(locationId, "北京", "CITY"),

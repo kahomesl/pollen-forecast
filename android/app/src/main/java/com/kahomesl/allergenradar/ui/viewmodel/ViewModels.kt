@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+internal fun userFacingDataError(@Suppress("UNUSED_PARAMETER") error: Throwable): String =
+    "网络连接暂时不可用，请检查网络后重试。"
+
 inline fun <reified T : ViewModel> viewModelFactory(crossinline create: () -> T): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -58,7 +61,7 @@ class HomeViewModel(
         mutableState.value = mutableState.value.copy(isLoading = true, errorMessage = null)
         val totalResult = runCatching { repository.getLocationAllergens(locationId) }
         val totalResponse = totalResult.getOrElse { error ->
-            mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = error.message ?: "无法获取当前数据")
+            mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error))
             return
         }
         val taxonResult = runCatching { repository.getLocationTaxon(locationId, ARTEMISIA_TAXON) }
@@ -101,7 +104,7 @@ class LocationViewModel(
         mutableState.value = mutableState.value.copy(isLoading = true, errorMessage = null)
         runCatching { repository.getLocations() }
             .onSuccess { locations -> mutableState.value = mutableState.value.copy(isLoading = false, locations = locations) }
-            .onFailure { error -> mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = error.message ?: "无法获取位置列表") }
+            .onFailure { error -> mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error)) }
     }
 
     fun select(locationId: String) = viewModelScope.launch { preference.setSelectedLocationId(locationId) }
@@ -178,7 +181,7 @@ class HistoryViewModel(
                 },
             )
         }.onFailure { error ->
-            mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = error.message ?: "无法获取历史数据")
+            mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error))
         }
     }
 }

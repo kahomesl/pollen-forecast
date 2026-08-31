@@ -1,5 +1,6 @@
 package com.kahomesl.allergenradar.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -160,7 +161,7 @@ fun HomeContent(state: HomeUiState, onRefresh: () -> Unit, modifier: Modifier = 
                 ObservationCard(
                     title = "蒿属 Artemisia",
                     observation = state.artemisia,
-                    emptyText = if (state.artemisiaError) "暂无蒿属独立预报数据" else "暂无蒿属独立预报数据",
+                    emptyText = "暂无蒿属独立数据",
                     highlight = true,
                 )
             }
@@ -168,7 +169,7 @@ fun HomeContent(state: HomeUiState, onRefresh: () -> Unit, modifier: Modifier = 
                 item {
                     AssistChip(
                         onClick = {},
-                        label = { Text("部分数据来源暂不可用（${state.providersWithErrors.size}）") },
+                        label = { Text("部分数据源暂时不可用（${state.providersWithErrors.size}）") },
                         leadingIcon = { Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp)) },
                     )
                 }
@@ -378,6 +379,7 @@ private fun StatusCard(title: String, value: String, detail: String? = null) {
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun DataExplanationScreen(onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
     Scaffold(topBar = {
         TopAppBar(title = { Text("数据说明") }, navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
