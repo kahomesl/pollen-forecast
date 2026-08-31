@@ -4,8 +4,7 @@ import { cors } from "@elysiajs/cors";
 import sql, { initDB } from "./db";
 import { runScrape, getScrapingStatus, scrapeSingleCity } from "./scraper";
 import { findCityByChineseName, findNearestMajorCity, getCityOptions, majorCities } from "./cityDirectory";
-import { TAXON_DEFINITIONS } from "./domain/taxon";
-import { pollenProviders } from "./providers/providerRegistry";
+import { createAllergenV1Api } from "./api/allergenV1";
 import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
 
@@ -19,16 +18,7 @@ runScrape().catch(console.error);
 
 const app = new Elysia()
   .use(cors())
-  // Versioned allergen-platform metadata. It does not alter legacy pollen responses.
-  .get("/api/v1/allergens", () => TAXON_DEFINITIONS)
-  .get("/api/v1/providers", () => {
-    return pollenProviders.map((provider) => ({
-      id: provider.id,
-      name: provider.name,
-      capabilities: provider.capabilities,
-      supportedTaxa: provider.supportedTaxa,
-    }));
-  })
+  .use(createAllergenV1Api())
   // Get all cities metadata (static list + coordinates)
   .get("/api/cities", () => {
     return majorCities.map(c => ({

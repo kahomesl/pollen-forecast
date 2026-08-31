@@ -24,3 +24,7 @@ export const ARTEMISIA: TaxonDefinition = {
 };
 
 export const TAXON_DEFINITIONS: readonly TaxonDefinition[] = [ARTEMISIA];
+
+export function getTaxonByCode(code: string): TaxonDefinition | undefined {
+  return TAXON_DEFINITIONS.find((taxon) => taxon.code === code);
+}
