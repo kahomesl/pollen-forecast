@@ -29,9 +29,11 @@ class ObservationSemanticsTest {
         scope = "TOTAL",
         measurementType = type,
         value = value,
+        unit = "level",
         risk = RiskDto(level = value.toInt()),
         provider = "weatherdt",
         source = SourceDto("WeatherDT"),
+        confidence = 3,
         time = ObservationTimeDto("2026-08-31T08:10:00.000Z"),
     )
 }

@@ -67,11 +67,11 @@ data class ObservationDto(
     val value: Double? = null,
     val minValue: Double? = null,
     val maxValue: Double? = null,
-    val unit: String? = null,
-    val risk: RiskDto? = null,
+    val unit: String,
+    val risk: RiskDto,
     val provider: String,
     val source: SourceDto,
-    val confidence: Int? = null,
+    val confidence: Int,
     val time: ObservationTimeDto,
 )
 

@@ -438,8 +438,8 @@ fun measurementLabel(type: String): String = when (type) {
     else -> type
 }
 
-fun riskLabel(observation: ObservationDto): String = observation.risk?.label?.takeIf { it.isNotBlank() }
-    ?: observation.risk?.level?.let { "等级 $it" }
+fun riskLabel(observation: ObservationDto): String = observation.risk.label?.takeIf { it.isNotBlank() }
+    ?: observation.risk.level?.let { "等级 $it" }
     ?: "暂无风险等级"
 
 private fun rangeText(observation: ObservationDto): String? = when {
@@ -460,6 +460,7 @@ private fun sampleObservation(type: String = "CURRENT", taxonName: String? = nul
     risk = RiskDto(4, "高"),
     provider = "weatherdt",
     source = SourceDto("WeatherDT"),
+    confidence = 3,
     time = ObservationTimeDto("2026-08-31T08:10:00.000Z"),
 )
 
