@@ -1,3 +1,4 @@
+import type { PollenObservation } from "../domain/pollenObservation";
 import type { TaxonCode } from "../domain/taxon";
 
 export type PollenProviderCapability =
@@ -16,17 +17,13 @@ export interface PollenProviderQuery {
   readonly to?: Date;
 }
 
-export interface PollenProvider<
-  TCurrent = unknown,
-  THistory = unknown,
-  TForecast = unknown,
-> {
+export interface PollenProvider {
   readonly id: string;
   readonly name: string;
   readonly capabilities: readonly PollenProviderCapability[];
   readonly supportedTaxa: readonly TaxonCode[];
 
-  readonly fetchCurrent?: (query: PollenProviderQuery) => Promise<TCurrent>;
-  readonly fetchHistory?: (query: PollenProviderQuery) => Promise<THistory>;
-  readonly fetchForecast?: (query: PollenProviderQuery) => Promise<TForecast>;
+  readonly fetchCurrent?: (query: PollenProviderQuery) => Promise<PollenObservation[]>;
+  readonly fetchHistory?: (query: PollenProviderQuery) => Promise<PollenObservation[]>;
+  readonly fetchForecast?: (query: PollenProviderQuery) => Promise<PollenObservation[]>;
 }
