@@ -28,7 +28,7 @@ describe("PollenObservation", () => {
     const measurementTypes: MeasurementType[] = [...MEASUREMENT_TYPES];
     const units: PollenUnit[] = [...POLLEN_UNITS];
 
-    expect(measurementTypes).toEqual(["OBSERVATION", "FORECAST", "ESTIMATE"]);
+    expect(measurementTypes).toEqual(["OBSERVATION", "FORECAST", "ESTIMATE", "CURRENT"]);
     expect(units).toHaveLength(5);
   });
 

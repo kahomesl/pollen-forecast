@@ -86,10 +86,11 @@ describe("BeijingPollenProvider", () => {
       provider: "beijing-pollen",
       sourceName: "北京花粉监测",
       confidence: 4,
-      validFrom: new Date("2026-08-30T01:00:00.000Z"),
-      validTo: new Date("2026-08-31T01:00:00.000Z"),
     });
     expect(forecast[0]?.value).toBeUndefined();
+    // title, dataTime, and vti disagree in the upstream response, so no validity is inferred.
+    expect(forecast[0]?.validFrom).toBeUndefined();
+    expect(forecast[0]?.validTo).toBeUndefined();
     expect(requestedUrls[0]).toContain("areaCode=110105");
   });
 

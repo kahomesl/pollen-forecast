@@ -43,7 +43,7 @@ describe("WeatherDtProvider", () => {
 
     expect(provider.id).toBe("weatherdt");
     expect(provider.capabilities).toEqual([
-      "TOTAL_OBSERVATION",
+      "TOTAL_CURRENT",
       "TOTAL_FORECAST",
       "HISTORY",
     ]);
@@ -60,7 +60,7 @@ describe("WeatherDtProvider", () => {
       {
         locationId: "beijing",
         scope: "TOTAL",
-        measurementType: "OBSERVATION",
+        measurementType: "CURRENT",
         value: 4,
         unit: "level",
         riskLevel: 4,
@@ -96,7 +96,7 @@ describe("WeatherDtProvider", () => {
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({
       scope: "TOTAL",
-      measurementType: "OBSERVATION",
+      measurementType: "CURRENT",
       riskLevel: 4,
     });
     expect(requestedUrls[0]).toContain("predictFlag=false");

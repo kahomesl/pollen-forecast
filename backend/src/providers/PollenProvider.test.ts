@@ -42,6 +42,7 @@ void invalidRawProvider;
 describe("PollenProvider", () => {
   test("expresses provider capabilities and supported taxa", async () => {
     const capabilities: PollenProviderCapability[] = [
+      "TOTAL_CURRENT",
       "TOTAL_OBSERVATION",
       "TOTAL_FORECAST",
       "CATEGORY_FORECAST",

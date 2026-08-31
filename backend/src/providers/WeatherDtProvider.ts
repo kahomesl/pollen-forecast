@@ -40,7 +40,7 @@ export class WeatherDtProvider implements PollenProvider {
   readonly id = "weatherdt";
   readonly name = "WeatherDT";
   readonly capabilities = [
-    "TOTAL_OBSERVATION",
+    "TOTAL_CURRENT",
     "TOTAL_FORECAST",
     "HISTORY",
   ] as const;
@@ -66,7 +66,7 @@ export class WeatherDtProvider implements PollenProvider {
 
     return levels
       .filter((level) => level.date === today)
-      .map((level) => this.toObservation(locationId, level, "OBSERVATION"));
+      .map((level) => this.toObservation(locationId, level, "CURRENT"));
   }
 
   async fetchHistory(query: PollenProviderQuery): Promise<PollenObservation[]> {
@@ -82,7 +82,7 @@ export class WeatherDtProvider implements PollenProvider {
 
     return levels
       .filter((level) => level.date >= startDate && level.date <= endDate)
-      .map((level) => this.toObservation(locationId, level, "OBSERVATION"));
+      .map((level) => this.toObservation(locationId, level, "CURRENT"));
   }
 
   async fetchForecast(query: PollenProviderQuery): Promise<PollenObservation[]> {
@@ -139,7 +139,7 @@ export class WeatherDtProvider implements PollenProvider {
   private toObservation(
     locationId: string,
     level: WeatherDtDailyLevel,
-    measurementType: "OBSERVATION" | "FORECAST",
+    measurementType: "CURRENT" | "FORECAST",
   ): PollenObservation {
     const timestamp = this.now();
 

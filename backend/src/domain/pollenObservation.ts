@@ -1,6 +1,10 @@
 import type { TaxonCode, TaxonScope } from "./taxon";
 
-export const MEASUREMENT_TYPES = ["OBSERVATION", "FORECAST", "ESTIMATE"] as const;
+/**
+ * CURRENT is a provider-published current-day value whose production method is
+ * not verified as direct observation. It must not be presented as a measurement.
+ */
+export const MEASUREMENT_TYPES = ["OBSERVATION", "FORECAST", "ESTIMATE", "CURRENT"] as const;
 export type MeasurementType = (typeof MEASUREMENT_TYPES)[number];
 
 export const POLLEN_UNITS = [

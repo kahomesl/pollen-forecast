@@ -1,6 +1,5 @@
 import type { PollenObservation } from "../domain/pollenObservation";
 import { ARTEMISIA } from "../domain/taxon";
-import { parseChinaDateTime } from "../time/chinaDate";
 import type { PollenProvider, PollenProviderQuery } from "./PollenProvider";
 
 const BEIJING_CLASSIFY_FORECAST_ENDPOINT = "https://pollenwechat.bjpws.com/v2/pollen/classify/forecast";
@@ -63,10 +62,7 @@ export class BeijingPollenProvider implements PollenProvider {
       return [];
     }
 
-    let validFrom: Date;
-    try {
-      validFrom = parseChinaDateTime(row.dataTime);
-    } catch {
+    if (!/^\d{12}$/.test(row.dataTime)) {
       return [];
     }
     const timestamp = this.now();
@@ -88,8 +84,6 @@ export class BeijingPollenProvider implements PollenProvider {
       sourceName: this.name,
       sourceUrl: BEIJING_CLASSIFY_FORECAST_ENDPOINT,
       confidence: 4,
-      validFrom,
-      validTo: new Date(validFrom.getTime() + row.vti * 60 * 60 * 1000),
       createdAt: timestamp,
       updatedAt: timestamp,
     }];

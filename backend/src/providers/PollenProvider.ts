@@ -2,6 +2,7 @@ import type { PollenObservation } from "../domain/pollenObservation";
 import type { TaxonCode } from "../domain/taxon";
 
 export type PollenProviderCapability =
+  | "TOTAL_CURRENT"
   | "TOTAL_OBSERVATION"
   | "TOTAL_FORECAST"
   | "CATEGORY_FORECAST"
