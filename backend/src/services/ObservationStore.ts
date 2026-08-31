@@ -15,12 +15,18 @@ export class ObservationStore {
   ) {}
 
   async persist(observations: readonly PollenObservation[]): Promise<void> {
-    if (observations.length === 0) return;
+    await this.persistAndCount(observations);
+  }
+
+  async persistAndCount(observations: readonly PollenObservation[]): Promise<number> {
+    if (observations.length === 0) return 0;
 
     try {
-      await this.repository.saveMany(observations);
+      const saved = await this.repository.saveMany(observations);
+      return saved.length;
     } catch {
       this.logger.error("Failed to persist normalized pollen observations.");
+      return 0;
     }
   }
 }

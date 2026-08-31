@@ -2,6 +2,7 @@ import type { PollenObservation } from "../domain/pollenObservation";
 import { getBeijingAreaCode, type LocationId } from "../domain/location";
 import { ARTEMISIA } from "../domain/taxon";
 import type { PollenProvider, PollenProviderQuery } from "./PollenProvider";
+import { fetchProviderResponse, getProviderTimeoutMs } from "./providerRequest";
 
 const BEIJING_CLASSIFY_FORECAST_ENDPOINT = "https://pollenwechat.bjpws.com/v2/pollen/classify/forecast";
 const ARTEMISIA_PLANT_CODE = "JKHS";
@@ -29,9 +30,9 @@ export class BeijingPollenProvider implements PollenProvider {
 
   async fetchForecast(query: PollenProviderQuery): Promise<PollenObservation[]> {
     const { locationId, areaCode } = this.requireLocation(query);
-    const response = await this.fetchImpl(this.buildForecastUrl(areaCode), {
+    const response = await fetchProviderResponse(this.fetchImpl, this.buildForecastUrl(areaCode), {
       headers: { "User-Agent": "PollenForecast/1.0" },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(getProviderTimeoutMs()),
     });
     if (!response.ok) return [];
 

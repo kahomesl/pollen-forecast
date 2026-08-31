@@ -2,6 +2,7 @@ import type { PollenObservation } from "../domain/pollenObservation";
 import { getWeatherDtCityCode, type LocationId } from "../domain/location";
 import { formatChinaDate, parseChinaDateStart } from "../time/chinaDate";
 import type { PollenProvider, PollenProviderQuery } from "./PollenProvider";
+import { fetchProviderResponse, getProviderTimeoutMs } from "./providerRequest";
 
 const WEATHER_DT_ENDPOINT = "https://graph.weatherdt.com/ty/pollen/v2/hfindex.html";
 
@@ -103,9 +104,9 @@ export class WeatherDtProvider implements PollenProvider {
   }
 
   async fetchDailyLevels(query: WeatherDtDailyLevelQuery): Promise<WeatherDtDailyLevel[]> {
-    const response = await this.fetchImpl(this.buildUrl(query), {
+    const response = await fetchProviderResponse(this.fetchImpl, this.buildUrl(query), {
       headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(getProviderTimeoutMs()),
     });
     if (!response.ok) return [];
 

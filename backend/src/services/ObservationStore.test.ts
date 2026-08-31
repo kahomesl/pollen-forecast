@@ -32,6 +32,13 @@ describe("ObservationStore", () => {
     expect(saved).toEqual([[currentObservation]]);
   });
 
+  test("returns the count confirmed by persistence for background sync accounting", async () => {
+    const store = new ObservationStore({ saveMany: async (observations) => [...observations] });
+
+    await expect(store.persistAndCount([currentObservation])).resolves.toBe(1);
+    await expect(store.persistAndCount([])).resolves.toBe(0);
+  });
+
   test("does not throw or expose persistence failures to the query flow", async () => {
     const errors: string[] = [];
     const store = new ObservationStore(
