@@ -48,17 +48,19 @@ describe("WeatherDtProvider", () => {
       "HISTORY",
     ]);
     expect(provider.supportedTaxa).toEqual([]);
+    expect(provider.supportsLocation("cn-city-beijing")).toBe(true);
+    expect(provider.supportsLocation("cn-beijing-chaoyang")).toBe(false);
   });
 
   test("normalizes current and forecast levels without assigning Artemisia", async () => {
     const { provider, requestedUrls } = createProvider();
 
-    const current = await provider.fetchCurrent({ locationId: "beijing" });
-    const forecast = await provider.fetchForecast({ locationId: "beijing" });
+    const current = await provider.fetchCurrent({ locationId: "cn-city-beijing" });
+    const forecast = await provider.fetchForecast({ locationId: "cn-city-beijing" });
 
     expect(current).toMatchObject([
       {
-        locationId: "beijing",
+        locationId: "cn-city-beijing",
         scope: "TOTAL",
         measurementType: "CURRENT",
         value: 4,
@@ -72,7 +74,7 @@ describe("WeatherDtProvider", () => {
     expect(current[0]?.taxonCode).toBeUndefined();
     expect(forecast).toMatchObject([
       {
-        locationId: "beijing",
+        locationId: "cn-city-beijing",
         scope: "TOTAL",
         measurementType: "FORECAST",
         value: 3,
@@ -88,7 +90,7 @@ describe("WeatherDtProvider", () => {
     const { provider, requestedUrls } = createProvider();
 
     const history = await provider.fetchHistory({
-      locationId: "beijing",
+      locationId: "cn-city-beijing",
       from: new Date("2026-08-30T16:00:00.000Z"),
       to: new Date("2026-08-31T15:59:59.000Z"),
     });

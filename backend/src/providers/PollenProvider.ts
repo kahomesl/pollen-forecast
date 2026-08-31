@@ -1,4 +1,5 @@
 import type { PollenObservation } from "../domain/pollenObservation";
+import type { LocationId } from "../domain/location";
 import type { TaxonCode } from "../domain/taxon";
 
 export type PollenProviderCapability =
@@ -12,7 +13,7 @@ export type PollenProviderCapability =
   | "HISTORY";
 
 export interface PollenProviderQuery {
-  readonly locationId?: string;
+  readonly locationId?: LocationId;
   readonly stationId?: string;
   readonly taxonCode?: TaxonCode;
   readonly from?: Date;
@@ -24,6 +25,7 @@ export interface PollenProvider {
   readonly name: string;
   readonly capabilities: readonly PollenProviderCapability[];
   readonly supportedTaxa: readonly TaxonCode[];
+  readonly supportsLocation: (locationId: LocationId) => boolean;
 
   readonly fetchCurrent?: (query: PollenProviderQuery) => Promise<PollenObservation[]>;
   readonly fetchHistory?: (query: PollenProviderQuery) => Promise<PollenObservation[]>;

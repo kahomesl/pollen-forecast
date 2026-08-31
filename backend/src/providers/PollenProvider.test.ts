@@ -34,6 +34,7 @@ const invalidRawProvider: PollenProvider = {
   name: "Raw example provider",
   capabilities: ["GENUS_FORECAST"],
   supportedTaxa: [ARTEMISIA.code],
+  supportsLocation: () => false,
   // @ts-expect-error Provider methods must return normalized observations.
   fetchCurrent: async () => ({ raw: "current" }),
 };
@@ -57,6 +58,7 @@ describe("PollenProvider", () => {
       name: "Example provider",
       capabilities,
       supportedTaxa: [ARTEMISIA.code],
+      supportsLocation: (locationId) => locationId === "cn-city-beijing",
       fetchCurrent: async () => [normalizedForecast],
       fetchHistory: async () => [normalizedForecast],
       fetchForecast: async () => [normalizedForecast],
@@ -65,9 +67,10 @@ describe("PollenProvider", () => {
     expect(provider.id).toBe("example");
     expect(provider.capabilities).toEqual(capabilities);
     expect(provider.supportedTaxa).toEqual(["ARTEMISIA"]);
-    expect(await provider.fetchCurrent?.({ locationId: "beijing" })).toEqual([normalizedForecast]);
-    expect(await provider.fetchHistory?.({ locationId: "beijing" })).toEqual([normalizedForecast]);
-    expect(await provider.fetchForecast?.({ locationId: "beijing", taxonCode: ARTEMISIA.code }))
+    expect(provider.supportsLocation("cn-city-beijing")).toBe(true);
+    expect(await provider.fetchCurrent?.({ locationId: "cn-city-beijing" })).toEqual([normalizedForecast]);
+    expect(await provider.fetchHistory?.({ locationId: "cn-city-beijing" })).toEqual([normalizedForecast]);
+    expect(await provider.fetchForecast?.({ locationId: "cn-city-beijing", taxonCode: ARTEMISIA.code }))
       .toEqual([normalizedForecast]);
   });
 });

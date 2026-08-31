@@ -64,16 +64,18 @@ describe("BeijingPollenProvider", () => {
       capabilities: ["GENUS_FORECAST"],
       supportedTaxa: ["ARTEMISIA"],
     });
+    expect(provider.supportsLocation("cn-beijing-chaoyang")).toBe(true);
+    expect(provider.supportsLocation("cn-city-beijing")).toBe(false);
   });
 
   test("normalizes only confirmed JKHS Artemisia forecasts as index ranges", async () => {
     const { provider, requestedUrls } = createProvider();
 
-    const forecast = await provider.fetchForecast({ locationId: "110105" });
+    const forecast = await provider.fetchForecast({ locationId: "cn-beijing-chaoyang" });
 
     expect(forecast).toHaveLength(1);
     expect(forecast[0]).toMatchObject({
-      locationId: "110105",
+      locationId: "cn-beijing-chaoyang",
       taxonCode: "ARTEMISIA",
       taxonNameCn: "蒿属",
       taxonNameEn: "Artemisia",
@@ -100,7 +102,7 @@ describe("BeijingPollenProvider", () => {
       data: { ...validForecastPayload.data, isValid: false },
     });
 
-    expect(await provider.fetchForecast({ locationId: "110105" })).toEqual([]);
+    expect(await provider.fetchForecast({ locationId: "cn-beijing-chaoyang" })).toEqual([]);
   });
 
   test("ignores forecast rows with an invalid upstream data time", async () => {
@@ -108,6 +110,6 @@ describe("BeijingPollenProvider", () => {
     malformedPayload.data.value["202608300900"].data[0]!.dataTime = "invalid";
     const { provider } = createProvider(malformedPayload);
 
-    expect(await provider.fetchForecast({ locationId: "110105" })).toEqual([]);
+    expect(await provider.fetchForecast({ locationId: "cn-beijing-chaoyang" })).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import type { PollenObservation } from "../domain/pollenObservation";
+import { getBeijingAreaCode, type LocationId } from "../domain/location";
 import { ARTEMISIA } from "../domain/taxon";
 import type { PollenProvider, PollenProviderQuery } from "./PollenProvider";
 
@@ -16,6 +17,7 @@ export class BeijingPollenProvider implements PollenProvider {
   readonly name = "北京花粉监测";
   readonly capabilities = ["GENUS_FORECAST"] as const;
   readonly supportedTaxa = [ARTEMISIA.code] as const;
+  readonly supportsLocation = (locationId: LocationId): boolean => getBeijingAreaCode(locationId) !== undefined;
 
   private readonly fetchImpl: (url: string, options?: RequestInit) => Promise<Response>;
   private readonly now: () => Date;
@@ -26,8 +28,8 @@ export class BeijingPollenProvider implements PollenProvider {
   }
 
   async fetchForecast(query: PollenProviderQuery): Promise<PollenObservation[]> {
-    const locationId = this.requireLocationId(query);
-    const response = await this.fetchImpl(this.buildForecastUrl(locationId), {
+    const { locationId, areaCode } = this.requireLocation(query);
+    const response = await this.fetchImpl(this.buildForecastUrl(areaCode), {
       headers: { "User-Agent": "PollenForecast/1.0" },
       signal: AbortSignal.timeout(10000),
     });
@@ -35,23 +37,28 @@ export class BeijingPollenProvider implements PollenProvider {
 
     const payload = await response.json() as unknown;
     return extractForecastRows(payload)
-      .filter((row) => row.areaCode === locationId)
-      .flatMap((row) => this.toArtemisiaForecast(row));
+      .filter((row) => row.areaCode === areaCode)
+      .flatMap((row) => this.toArtemisiaForecast(locationId, row));
   }
 
-  private requireLocationId(query: PollenProviderQuery): string {
+  private requireLocation(query: PollenProviderQuery): { locationId: LocationId; areaCode: string } {
     if (!query.locationId) {
       throw new Error("Beijing pollen forecasts require an area-code locationId");
     }
 
-    return query.locationId;
+    const areaCode = getBeijingAreaCode(query.locationId);
+    if (!areaCode) {
+      throw new Error(`Beijing pollen forecasts do not support location ${query.locationId}`);
+    }
+
+    return { locationId: query.locationId, areaCode };
   }
 
   private buildForecastUrl(areaCode: string): string {
     return `${BEIJING_CLASSIFY_FORECAST_ENDPOINT}?${new URLSearchParams({ areaCode })}`;
   }
 
-  private toArtemisiaForecast(row: BeijingForecastRow): PollenObservation[] {
+  private toArtemisiaForecast(locationId: LocationId, row: BeijingForecastRow): PollenObservation[] {
     if (
       row.plantCode !== ARTEMISIA_PLANT_CODE
       || row.plantName !== ARTEMISIA_PLANT_NAME
@@ -68,8 +75,8 @@ export class BeijingPollenProvider implements PollenProvider {
     const timestamp = this.now();
 
     return [{
-      id: `${this.id}:${row.areaCode}:${row.plantCode}:${row.dataTime}`,
-      locationId: row.areaCode,
+      id: `${this.id}:${locationId}:${row.plantCode}:${row.dataTime}`,
+      locationId,
       taxonCode: ARTEMISIA.code,
       taxonNameCn: ARTEMISIA.nameCn,
       taxonNameEn: ARTEMISIA.nameEn,

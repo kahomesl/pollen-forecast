@@ -1,4 +1,5 @@
 import type { PollenObservation } from "../domain/pollenObservation";
+import { getWeatherDtCityCode, type LocationId } from "../domain/location";
 import { formatChinaDate, parseChinaDateStart } from "../time/chinaDate";
 import type { PollenProvider, PollenProviderQuery } from "./PollenProvider";
 
@@ -45,6 +46,7 @@ export class WeatherDtProvider implements PollenProvider {
     "HISTORY",
   ] as const;
   readonly supportedTaxa = [] as const;
+  readonly supportsLocation = (locationId: LocationId): boolean => getWeatherDtCityCode(locationId) !== undefined;
 
   private readonly fetchImpl: (url: string, options?: RequestInit) => Promise<Response>;
   private readonly now: () => Date;
@@ -56,9 +58,9 @@ export class WeatherDtProvider implements PollenProvider {
 
   async fetchCurrent(query: PollenProviderQuery): Promise<PollenObservation[]> {
     const today = formatChinaDate(this.now());
-    const locationId = this.requireLocationId(query);
+    const { locationId, weatherDtCityCode } = this.requireLocation(query);
     const levels = await this.fetchDailyLevels({
-      locationId,
+      locationId: weatherDtCityCode,
       startDate: today,
       endDate: today,
       includeForecast: false,
@@ -72,9 +74,9 @@ export class WeatherDtProvider implements PollenProvider {
   async fetchHistory(query: PollenProviderQuery): Promise<PollenObservation[]> {
     const endDate = formatChinaDate(query.to ?? this.now());
     const startDate = formatChinaDate(query.from ?? this.now());
-    const locationId = this.requireLocationId(query);
+    const { locationId, weatherDtCityCode } = this.requireLocation(query);
     const levels = await this.fetchDailyLevels({
-      locationId,
+      locationId: weatherDtCityCode,
       startDate,
       endDate,
       includeForecast: false,
@@ -87,9 +89,9 @@ export class WeatherDtProvider implements PollenProvider {
 
   async fetchForecast(query: PollenProviderQuery): Promise<PollenObservation[]> {
     const today = formatChinaDate(this.now());
-    const locationId = this.requireLocationId(query);
+    const { locationId, weatherDtCityCode } = this.requireLocation(query);
     const levels = await this.fetchDailyLevels({
-      locationId,
+      locationId: weatherDtCityCode,
       startDate: formatChinaDate(query.from ?? this.now()),
       endDate: formatChinaDate(query.to ?? this.now()),
       includeForecast: true,
@@ -116,12 +118,17 @@ export class WeatherDtProvider implements PollenProvider {
     });
   }
 
-  private requireLocationId(query: PollenProviderQuery): string {
+  private requireLocation(query: PollenProviderQuery): { locationId: LocationId; weatherDtCityCode: string } {
     if (!query.locationId) {
       throw new Error("WeatherDT requires a locationId");
     }
 
-    return query.locationId;
+    const weatherDtCityCode = getWeatherDtCityCode(query.locationId);
+    if (!weatherDtCityCode) {
+      throw new Error(`WeatherDT does not support location ${query.locationId}`);
+    }
+
+    return { locationId: query.locationId, weatherDtCityCode };
   }
 
   private buildUrl(query: WeatherDtDailyLevelQuery): string {

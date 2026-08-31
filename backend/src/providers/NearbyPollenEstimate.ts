@@ -1,6 +1,7 @@
 import type { PollenObservation } from "../domain/pollenObservation";
 import { formatChinaDate } from "../time/chinaDate";
 import type { PollenProvider } from "./PollenProvider";
+import type { LocationId } from "../domain/location";
 
 export interface NearbyPollenEstimateInput {
   readonly locationId: string;
@@ -16,6 +17,7 @@ export const nearbyPollenProvider: PollenProvider = {
   name: "Nearby interpolation",
   capabilities: ["TOTAL_ESTIMATE"],
   supportedTaxa: [],
+  supportsLocation: (_locationId: LocationId) => false,
 };
 
 export function createNearbyPollenEstimate(
