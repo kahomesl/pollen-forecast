@@ -62,6 +62,22 @@ describe("queryLocationAllergens", () => {
     expect(result.providersWithErrors).toEqual(["failed"]);
   });
 
+  test("keeps a provider's current data when its later forecast call fails", async () => {
+    const partiallySuccessful = provider({
+      id: "partially-successful",
+      fetchCurrent: async () => [totalCurrent],
+      fetchForecast: async () => { throw new Error("forecast timeout"); },
+    });
+
+    const result = await queryLocationAllergens({
+      locationId: "cn-city-beijing",
+      providers: [partiallySuccessful],
+    });
+
+    expect(result.observations).toEqual([totalCurrent]);
+    expect(result.providersWithErrors).toEqual(["partially-successful"]);
+  });
+
   test("returns an empty collection when supported providers return no data", async () => {
     const noData = provider({ fetchCurrent: async () => [] });
 

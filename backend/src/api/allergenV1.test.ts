@@ -97,4 +97,44 @@ describe("allergen v1 API", () => {
       },
     }]);
   });
+
+  test("isolates a failing provider without exposing its exception", async () => {
+    const successful: PollenProvider = {
+      id: "successful",
+      name: "Successful",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+      supportsLocation: (locationId) => locationId === "cn-city-beijing",
+      fetchCurrent: async () => [{
+        id: "successful-current",
+        locationId: "cn-city-beijing",
+        scope: "TOTAL",
+        measurementType: "CURRENT",
+        unit: "level",
+        provider: "successful",
+        sourceName: "Successful",
+        confidence: 3,
+        createdAt: new Date("2026-08-31T00:00:00.000Z"),
+        updatedAt: new Date("2026-08-31T00:00:00.000Z"),
+      }],
+    };
+    const failed: PollenProvider = {
+      id: "failed",
+      name: "Failed",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+      supportsLocation: (locationId) => locationId === "cn-city-beijing",
+      fetchCurrent: async () => { throw new Error("upstream password=secret"); },
+    };
+
+    const { response, body } = await responseFor(
+      "/api/v1/locations/cn-city-beijing/allergens",
+      [successful, failed],
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.observations).toHaveLength(1);
+    expect(body.providersWithErrors).toEqual(["failed"]);
+    expect(JSON.stringify(body)).not.toContain("password");
+  });
 });
