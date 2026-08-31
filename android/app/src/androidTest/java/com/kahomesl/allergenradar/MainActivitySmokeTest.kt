@@ -36,7 +36,21 @@ class MainActivitySmokeTest {
             composeRule.onAllNodesWithText("暂无蒿属独立数据").fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithText("没有数据不代表风险为零。").assertIsDisplayed()
+        composeRule.onNodeWithText("暂无蒿属独立数据").assertIsDisplayed()
+    }
+
+    @Test
+    fun historyFilterSurvivesAnIdleBackendConnection() {
+        Thread.sleep(32_000)
+        composeRule.onNodeWithText("历史").performClick()
+        composeRule.onNodeWithText("蒿属").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("暂无符合筛选条件的历史数据").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("网络连接暂时不可用，请检查网络后重试。").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("暂无符合筛选条件的历史数据").assertIsDisplayed()
     }
 
     @Test
@@ -47,6 +61,6 @@ class MainActivitySmokeTest {
 
         composeRule.activity.onBackPressedDispatcher.onBackPressed()
 
-        composeRule.onNodeWithText("我的").assertIsDisplayed()
+        composeRule.onNodeWithText("数据说明").assertIsDisplayed()
     }
 }

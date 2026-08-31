@@ -10,23 +10,26 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     fun create(baseUrl: String, debug: Boolean = false): PollenApi {
-        val logging = HttpLoggingInterceptor().apply {
-            level = if (debug) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
-        }
-        val httpClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(false)
-            .addInterceptor(logging)
-            .build()
         val json = Json { ignoreUnknownKeys = true }
         return Retrofit.Builder()
             .baseUrl(baseUrl.ensureTrailingSlash())
-            .client(httpClient)
+            .client(createHttpClient(debug))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(PollenApi::class.java)
+    }
+
+    internal fun createHttpClient(debug: Boolean): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (debug) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+        }
+        return OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .addInterceptor(logging)
+            .build()
     }
 
     private fun String.ensureTrailingSlash(): String = if (endsWith('/')) this else "$this/"
