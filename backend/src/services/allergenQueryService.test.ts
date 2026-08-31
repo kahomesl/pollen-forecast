@@ -50,8 +50,8 @@ function provider(overrides: Partial<PollenProvider> = {}): PollenProvider {
 
 describe("queryLocationAllergens", () => {
   test("keeps successful provider data when another supported provider fails", async () => {
-    const successful = provider({ id: "successful", fetchCurrent: async () => [totalCurrent] });
-    const failed = provider({ id: "failed", fetchCurrent: async () => { throw new Error("timeout"); } });
+    const successful = provider({ id: "successful", capabilities: ["TOTAL_CURRENT"], fetchCurrent: async () => [totalCurrent] });
+    const failed = provider({ id: "failed", capabilities: ["TOTAL_CURRENT"], fetchCurrent: async () => { throw new Error("timeout"); } });
 
     const result = await queryLocationAllergens({
       locationId: "cn-city-beijing",
@@ -65,6 +65,7 @@ describe("queryLocationAllergens", () => {
   test("keeps a provider's current data when its later forecast call fails", async () => {
     const partiallySuccessful = provider({
       id: "partially-successful",
+      capabilities: ["TOTAL_CURRENT", "TOTAL_FORECAST"],
       fetchCurrent: async () => [totalCurrent],
       fetchForecast: async () => { throw new Error("forecast timeout"); },
     });
@@ -79,7 +80,7 @@ describe("queryLocationAllergens", () => {
   });
 
   test("returns an empty collection when supported providers return no data", async () => {
-    const noData = provider({ fetchCurrent: async () => [] });
+    const noData = provider({ capabilities: ["TOTAL_CURRENT"], fetchCurrent: async () => [] });
 
     await expect(queryLocationAllergens({
       locationId: "cn-city-beijing",
@@ -90,6 +91,7 @@ describe("queryLocationAllergens", () => {
   test("preserves a class provider method receiver while invoking it", async () => {
     const receiverAware = provider({
       id: "receiver-aware",
+      capabilities: ["TOTAL_CURRENT"],
       fetchCurrent: async function (this: PollenProvider) {
         if (this.id !== "receiver-aware") throw new Error("provider receiver lost");
         return [totalCurrent];
@@ -105,10 +107,12 @@ describe("queryLocationAllergens", () => {
   test("does not call total providers for a requested Artemisia taxon", async () => {
     const total = provider({
       id: "total",
+      capabilities: ["TOTAL_CURRENT"],
       fetchCurrent: async () => [totalCurrent],
     });
     const artemisia = provider({
       id: "artemisia",
+      capabilities: ["GENUS_FORECAST"],
       supportedTaxa: [ARTEMISIA.code],
       fetchForecast: async () => [artemisiaForecast],
     });
@@ -121,5 +125,54 @@ describe("queryLocationAllergens", () => {
 
     expect(result.observations).toEqual([artemisiaForecast]);
     expect(result.providersWithErrors).toEqual([]);
+  });
+
+  test("returns supported Artemisia current and forecast values without querying history", async () => {
+    const artemisiaCurrent: PollenObservation = {
+      ...artemisiaForecast,
+      id: "beijing-artemisia-current",
+      measurementType: "CURRENT",
+    };
+    const artemisia = provider({
+      id: "artemisia",
+      capabilities: ["GENUS_CURRENT", "GENUS_FORECAST"],
+      supportedTaxa: [ARTEMISIA.code],
+      fetchCurrent: async () => [artemisiaCurrent],
+      fetchForecast: async () => [artemisiaForecast],
+      fetchHistory: async () => { throw new Error("history must not be queried"); },
+    });
+
+    const result = await queryLocationAllergens({
+      locationId: "cn-beijing-chaoyang",
+      taxonCode: ARTEMISIA.code,
+      providers: [artemisia],
+    });
+
+    expect(result.observations).toEqual([artemisiaCurrent, artemisiaForecast]);
+    expect(result.providersWithErrors).toEqual([]);
+  });
+
+  test("keeps a taxon's current value when that provider's forecast fails", async () => {
+    const artemisiaCurrent: PollenObservation = {
+      ...artemisiaForecast,
+      id: "beijing-artemisia-current",
+      measurementType: "CURRENT",
+    };
+    const artemisia = provider({
+      id: "artemisia",
+      capabilities: ["GENUS_CURRENT", "GENUS_FORECAST"],
+      supportedTaxa: [ARTEMISIA.code],
+      fetchCurrent: async () => [artemisiaCurrent],
+      fetchForecast: async () => { throw new Error("forecast timeout"); },
+    });
+
+    const result = await queryLocationAllergens({
+      locationId: "cn-beijing-chaoyang",
+      taxonCode: ARTEMISIA.code,
+      providers: [artemisia],
+    });
+
+    expect(result.observations).toEqual([artemisiaCurrent]);
+    expect(result.providersWithErrors).toEqual(["artemisia"]);
   });
 });

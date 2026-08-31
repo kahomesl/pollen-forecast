@@ -2,6 +2,7 @@ import type { LocationId } from "../domain/location";
 import type { PollenObservation } from "../domain/pollenObservation";
 import type { TaxonCode } from "../domain/taxon";
 import type { PollenProvider } from "../providers/PollenProvider";
+import type { PollenProviderCapability } from "../providers/PollenProvider";
 
 export interface LocationAllergenQuery {
   readonly locationId: LocationId;
@@ -33,12 +34,22 @@ async function queryProvider(
   provider: PollenProvider,
   query: LocationAllergenQuery,
 ): Promise<{ providerId: string; observations: readonly PollenObservation[]; hadError: boolean }> {
-  const methods = query.taxonCode
-    ? [() => provider.fetchForecast?.({ locationId: query.locationId, taxonCode: query.taxonCode })]
-    : [
-      () => provider.fetchCurrent?.({ locationId: query.locationId }),
-      () => provider.fetchForecast?.({ locationId: query.locationId }),
-    ];
+  const supportsCurrent = query.taxonCode
+    ? hasAnyCapability(provider, ["GENUS_CURRENT", "GENUS_OBSERVATION"])
+    : hasAnyCapability(provider, ["TOTAL_CURRENT", "TOTAL_OBSERVATION", "GENUS_CURRENT", "GENUS_OBSERVATION"]);
+  const supportsForecast = query.taxonCode
+    ? hasAnyCapability(provider, ["GENUS_FORECAST"])
+    : hasAnyCapability(provider, ["TOTAL_FORECAST", "CATEGORY_FORECAST", "GENUS_FORECAST"]);
+  const methods = [
+    ...(supportsCurrent ? [() => provider.fetchCurrent?.({
+      locationId: query.locationId,
+      ...(query.taxonCode ? { taxonCode: query.taxonCode } : {}),
+    })] : []),
+    ...(supportsForecast ? [() => provider.fetchForecast?.({
+      locationId: query.locationId,
+      ...(query.taxonCode ? { taxonCode: query.taxonCode } : {}),
+    })] : []),
+  ];
   const observations: PollenObservation[] = [];
 
   try {
@@ -50,4 +61,11 @@ async function queryProvider(
   } catch {
     return { providerId: provider.id, observations, hadError: true };
   }
+}
+
+function hasAnyCapability(
+  provider: PollenProvider,
+  capabilities: readonly PollenProviderCapability[],
+): boolean {
+  return capabilities.some((capability) => provider.capabilities.includes(capability));
 }

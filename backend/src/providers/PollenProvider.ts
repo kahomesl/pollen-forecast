@@ -7,6 +7,7 @@ export type PollenProviderCapability =
   | "TOTAL_OBSERVATION"
   | "TOTAL_FORECAST"
   | "CATEGORY_FORECAST"
+  | "GENUS_CURRENT"
   | "GENUS_OBSERVATION"
   | "GENUS_FORECAST"
   | "TOTAL_ESTIMATE"

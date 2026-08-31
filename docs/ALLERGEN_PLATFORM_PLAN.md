@@ -40,7 +40,7 @@
 
 ### 2.2 数据类型
 
-平台统一将数据分为三类：
+平台统一将数据分为四类：
 
 #### OBSERVATION
 
@@ -51,6 +51,13 @@
 - 监测站直接采样
 - 自动花粉监测设备
 - 实验室识别后的实测结果
+
+#### CURRENT
+
+上游发布的当前期数据，但其生产方法无法确认是直接观测。
+
+CURRENT 不能描述为实测、监测值或 OBSERVATION。例如 WeatherDT 当前综合
+花粉风险指数属于 CURRENT；它保留当前风险信息，但不伪造直接测量语义。
 
 #### FORECAST
 
@@ -403,6 +410,7 @@ updated_at
 取值：
 
 OBSERVATION
+CURRENT
 FORECAST
 ESTIMATE
 
@@ -544,8 +552,10 @@ fetchForecast()
 capabilities 可包括：
 
 TOTAL_OBSERVATION
+TOTAL_CURRENT
 TOTAL_FORECAST
 CATEGORY_FORECAST
+GENUS_CURRENT
 GENUS_OBSERVATION
 GENUS_FORECAST
 HISTORY
@@ -556,7 +566,8 @@ HISTORY
 
 WeatherDtProvider
 
-TOTAL_OBSERVATION
+TOTAL_CURRENT
+TOTAL_FORECAST
 HISTORY
 
 不能声明：
@@ -945,7 +956,7 @@ Phase 1 必须同时满足：
 - Provider 之间互相独立。
 - ARTEMISIA 有统一 taxon_code。
 - 数据可以区分 TOTAL / CATEGORY / FAMILY / GENUS / SPECIES。
-- 数据可以区分 OBSERVATION / FORECAST / ESTIMATE。
+- 数据可以区分 OBSERVATION / CURRENT / FORECAST / ESTIMATE，且 CURRENT 不伪装为实测。
 - API 返回 provider。
 - API 返回 source。
 - API 返回 confidence。
