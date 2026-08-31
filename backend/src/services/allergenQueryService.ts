@@ -34,17 +34,17 @@ async function queryProvider(
   query: LocationAllergenQuery,
 ): Promise<{ providerId: string; observations: readonly PollenObservation[]; hadError: boolean }> {
   const methods = query.taxonCode
-    ? [provider.fetchForecast]
-    : [provider.fetchCurrent, provider.fetchForecast];
+    ? [() => provider.fetchForecast?.({ locationId: query.locationId, taxonCode: query.taxonCode })]
+    : [
+      () => provider.fetchCurrent?.({ locationId: query.locationId }),
+      () => provider.fetchForecast?.({ locationId: query.locationId }),
+    ];
   const observations: PollenObservation[] = [];
 
   try {
     for (const fetchObservations of methods) {
-      if (!fetchObservations) continue;
-      observations.push(...await fetchObservations({
-        locationId: query.locationId,
-        taxonCode: query.taxonCode,
-      }));
+      const fetched = await fetchObservations();
+      if (fetched) observations.push(...fetched);
     }
     return { providerId: provider.id, observations, hadError: false };
   } catch {

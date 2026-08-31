@@ -71,6 +71,21 @@ describe("queryLocationAllergens", () => {
     })).resolves.toEqual({ observations: [], providersWithErrors: [] });
   });
 
+  test("preserves a class provider method receiver while invoking it", async () => {
+    const receiverAware = provider({
+      id: "receiver-aware",
+      fetchCurrent: async function (this: PollenProvider) {
+        if (this.id !== "receiver-aware") throw new Error("provider receiver lost");
+        return [totalCurrent];
+      },
+    });
+
+    await expect(queryLocationAllergens({
+      locationId: "cn-city-beijing",
+      providers: [receiverAware],
+    })).resolves.toEqual({ observations: [totalCurrent], providersWithErrors: [] });
+  });
+
   test("does not call total providers for a requested Artemisia taxon", async () => {
     const total = provider({
       id: "total",
