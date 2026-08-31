@@ -221,12 +221,11 @@ export const runScrape = async () => {
   const citiesWithData = new Set<string>();
 
   for (const city of majorCities) {
-    console.log(`  Scraping ${city.cn} (${city.en})...`);
-    scrapingCities.add(city.en);
-    const ok = await fetchPollenData(city, pastStr, todayStr);
-    if (ok) citiesWithData.add(city.en);
-    await new Promise(r => setTimeout(r, 300));
-  }
+  console.log(`  Scraping ${city.cn} (${city.en})...`);
+  scrapingCities.add(city.en);
+  await fetchPollenData(city, pastStr, todayStr);
+  await new Promise(r => setTimeout(r, 300));
+}
 
   // Check which cities still have no data for today
   const todayRows = await sql`
