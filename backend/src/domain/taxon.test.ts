@@ -15,5 +15,6 @@ describe("taxon definitions", () => {
     expect(ARTEMISIA.aliases).toContain("Artemisia");
     expect(ARTEMISIA.aliases).toContain("Mugwort");
     expect(ARTEMISIA.aliases).toContain("蒿属");
+    expect(ARTEMISIA.aliases).toContain("菊科蒿属");
   });
 });

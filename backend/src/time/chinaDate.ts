@@ -28,3 +28,18 @@ export function parseChinaDateStart(date: string): Date {
 
   return parsed;
 }
+
+export function parseChinaDateTime(dateTime: string): Date {
+  const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(dateTime);
+  if (!match) {
+    throw new Error(`Invalid China date-time: ${dateTime}`);
+  }
+
+  const [, year, month, day, hour, minute] = match;
+  const parsed = new Date(`${year}-${month}-${day}T${hour}:${minute}:00+08:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid China date-time: ${dateTime}`);
+  }
+
+  return parsed;
+}

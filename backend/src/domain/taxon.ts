@@ -19,6 +19,6 @@ export const ARTEMISIA: TaxonDefinition = {
   code: "ARTEMISIA",
   nameCn: "蒿属",
   nameEn: "Artemisia",
-  aliases: ["Artemisia", "Mugwort", "蒿属"],
+  aliases: ["Artemisia", "Mugwort", "蒿属", "菊科蒿属"],
   scope: "GENUS",
 };
