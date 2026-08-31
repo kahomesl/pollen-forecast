@@ -1,18 +1,24 @@
 import { Elysia } from "elysia";
 
 import { getLocationById, LOCATION_DEFINITIONS, type LocationDefinition } from "../domain/location";
-import type { PollenObservation } from "../domain/pollenObservation";
+import { MEASUREMENT_TYPES, type MeasurementType, type PollenObservation } from "../domain/pollenObservation";
 import { getTaxonByCode, TAXON_DEFINITIONS } from "../domain/taxon";
 import { pollenProviders } from "../providers/providerRegistry";
 import type { PollenProvider } from "../providers/PollenProvider";
+import type { PollenObservationRepository } from "../repositories/PollenObservationRepository";
 import { queryLocationAllergens } from "../services/allergenQueryService";
+import type { ObservationStore } from "../services/ObservationStore";
 
 export interface AllergenV1ApiOptions {
   readonly providers?: readonly PollenProvider[];
+  readonly observationStore?: Pick<ObservationStore, "persist">;
+  readonly observationRepository?: Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
 }
 
 export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
   const providers = options.providers ?? pollenProviders;
+  const observationStore = options.observationStore;
+  const observationRepository = options.observationRepository;
 
   return new Elysia()
     .get("/api/v1/allergens", () => TAXON_DEFINITIONS)
@@ -23,14 +29,42 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
       supportedTaxa: provider.supportedTaxa,
     })))
     .get("/api/v1/locations", () => LOCATION_DEFINITIONS.map(toPublicLocation))
+    .get("/api/v1/locations/:locationId/history", async ({ params, query, set }) => {
+      const location = getLocationById(params.locationId);
+      if (!location) return notFound(set, "LOCATION_NOT_FOUND", "Unknown location");
+      if (!observationRepository) return unavailable(set);
+
+      const taxon = typeof query.taxon === "string" ? getTaxonByCode(query.taxon.toUpperCase()) : undefined;
+      if (typeof query.taxon === "string" && !taxon) {
+        return notFound(set, "TAXON_NOT_FOUND", "Unknown allergen");
+      }
+      const measurementType = parseMeasurementType(query.measurementType);
+      if (query.measurementType !== undefined && !measurementType) {
+        return badRequest(set, "INVALID_MEASUREMENT_TYPE", "Invalid measurementType");
+      }
+      const limit = parseLimit(query.limit);
+      if (!limit) return badRequest(set, "INVALID_LIMIT", "limit must be an integer from 1 to 500");
+
+      const options = { ...(measurementType ? { measurementType } : {}), limit };
+      const observations = taxon
+        ? await observationRepository.findByLocationAndTaxon(location.id, taxon.code, options)
+        : await observationRepository.findByLocation(location.id, options);
+
+      return {
+        location: toPublicLocation(location),
+        observations: observations.map(serializeObservation),
+      };
+    })
     .get("/api/v1/locations/:locationId/allergens", async ({ params, set }) => {
       const location = getLocationById(params.locationId);
       if (!location) return notFound(set, "LOCATION_NOT_FOUND", "Unknown location");
 
-      return toApiQueryResult(location, await queryLocationAllergens({
+      const result = await queryLocationAllergens({
         locationId: location.id,
         providers,
-      }));
+      });
+      await observationStore?.persist(result.observations);
+      return toApiQueryResult(location, result);
     })
     .get("/api/v1/locations/:locationId/allergens/:taxon", async ({ params, set }) => {
       const location = getLocationById(params.locationId);
@@ -39,11 +73,13 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
       const taxon = getTaxonByCode(params.taxon.toUpperCase());
       if (!taxon) return notFound(set, "TAXON_NOT_FOUND", "Unknown allergen");
 
-      return toApiQueryResult(location, await queryLocationAllergens({
+      const result = await queryLocationAllergens({
         locationId: location.id,
         taxonCode: taxon.code,
         providers,
-      }));
+      });
+      await observationStore?.persist(result.observations);
+      return toApiQueryResult(location, result);
     });
 }
 
@@ -110,4 +146,28 @@ function serializeObservation(observation: PollenObservation) {
 function notFound(set: { status?: number | string }, code: string, message: string) {
   set.status = 404;
   return { error: { code, message } };
+}
+
+function badRequest(set: { status?: number | string }, code: string, message: string) {
+  set.status = 400;
+  return { error: { code, message } };
+}
+
+function unavailable(set: { status?: number | string }) {
+  set.status = 503;
+  return { error: { code: "HISTORY_UNAVAILABLE", message: "History storage is unavailable" } };
+}
+
+function parseMeasurementType(value: unknown): MeasurementType | undefined {
+  return typeof value === "string" && MEASUREMENT_TYPES.includes(value as MeasurementType)
+    ? value as MeasurementType
+    : undefined;
+}
+
+function parseLimit(value: unknown): number | undefined {
+  if (value === undefined) return 100;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return undefined;
+
+  const limit = Number(value);
+  return Number.isInteger(limit) && limit >= 1 && limit <= 500 ? limit : undefined;
 }

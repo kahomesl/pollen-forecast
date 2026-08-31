@@ -99,4 +99,21 @@ describe("PollenObservationRepository", () => {
     expect(statements[0]).toContain("ON CONFLICT (id) DO UPDATE SET");
     expect(statements[0]).toContain("stored_at = NOW()");
   });
+
+  test("finds history by canonical location, taxon, measurement type, and limit", async () => {
+    const statements: string[] = [];
+    const sql: PollenObservationSql = async (strings) => {
+      statements.push(strings.join("?"));
+      return [rowFrom(artemisiaForecast)];
+    };
+    const repository = new PollenObservationRepository(sql);
+
+    await expect(repository.findByLocationAndTaxon("cn-beijing-chaoyang", "ARTEMISIA", {
+      measurementType: "FORECAST",
+      limit: 10,
+    })).resolves.toEqual([artemisiaForecast]);
+    expect(statements[0]).toContain("location_id = ? AND taxon_code = ?");
+    expect(statements[0]).toContain("measurement_type = ?");
+    expect(statements[0]).toContain("LIMIT ?");
+  });
 });

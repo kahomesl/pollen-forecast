@@ -5,11 +5,15 @@ import sql, { initDB } from "./db";
 import { runScrape, getScrapingStatus, scrapeSingleCity } from "./scraper";
 import { findCityByChineseName, findNearestMajorCity, getCityOptions, majorCities } from "./cityDirectory";
 import { createAllergenV1Api } from "./api/allergenV1";
+import { PollenObservationRepository, type PollenObservationSql } from "./repositories/PollenObservationRepository";
+import { ObservationStore } from "./services/ObservationStore";
 import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
 
 const port = process.env.PORT ?? 8080;
 const staticDir = path.join(__dirname, '../../frontend/dist');
+const observationRepository = new PollenObservationRepository(sql as unknown as PollenObservationSql);
+const observationStore = new ObservationStore(observationRepository);
 
 // Initialize DB before starting server
 await initDB();
@@ -18,7 +22,7 @@ runScrape().catch(console.error);
 
 const app = new Elysia()
   .use(cors())
-  .use(createAllergenV1Api())
+  .use(createAllergenV1Api({ observationRepository, observationStore }))
   // Get all cities metadata (static list + coordinates)
   .get("/api/cities", () => {
     return majorCities.map(c => ({

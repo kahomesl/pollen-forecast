@@ -1,10 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
 import type { PollenProvider } from "../providers/PollenProvider";
+import type { PollenObservation } from "../domain/pollenObservation";
+import type { PollenObservationRepository } from "../repositories/PollenObservationRepository";
+import type { ObservationStore } from "../services/ObservationStore";
 import { createAllergenV1Api } from "./allergenV1";
 
-async function responseFor(path: string, providers: readonly PollenProvider[] = []) {
-  const response = await createAllergenV1Api({ providers }).handle(new Request(`http://localhost${path}`));
+async function responseFor(
+  path: string,
+  providers: readonly PollenProvider[] = [],
+  options: {
+    observationStore?: Pick<ObservationStore, "persist">;
+    observationRepository?: Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+  } = {},
+) {
+  const response = await createAllergenV1Api({ providers, ...options }).handle(new Request(`http://localhost${path}`));
   return { response, body: await response.json() };
 }
 
@@ -136,5 +146,74 @@ describe("allergen v1 API", () => {
     expect(body.observations).toHaveLength(1);
     expect(body.providersWithErrors).toEqual(["failed"]);
     expect(JSON.stringify(body)).not.toContain("password");
+  });
+
+  test("persists successful live observations without changing the API response", async () => {
+    const observation: PollenObservation = {
+      id: "weatherdt:beijing",
+      locationId: "cn-city-beijing",
+      scope: "TOTAL",
+      measurementType: "CURRENT",
+      value: 4,
+      unit: "level",
+      provider: "weatherdt",
+      sourceName: "WeatherDT",
+      confidence: 3,
+      createdAt: new Date("2026-08-31T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-31T00:00:00.000Z"),
+    };
+    const saved: Array<readonly PollenObservation[]> = [];
+    const provider: PollenProvider = {
+      id: "weatherdt",
+      name: "WeatherDT",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+      supportsLocation: (locationId) => locationId === "cn-city-beijing",
+      fetchCurrent: async () => [observation],
+    };
+
+    const { response, body } = await responseFor(
+      "/api/v1/locations/cn-city-beijing/allergens",
+      [provider],
+      { observationStore: { persist: async (observations) => { saved.push(observations); } } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.observations).toHaveLength(1);
+    expect(saved).toEqual([[observation]]);
+  });
+
+  test("reads explicitly requested history without using it as a current-data fallback", async () => {
+    const historyObservation: PollenObservation = {
+      id: "weatherdt:stored",
+      locationId: "cn-city-beijing",
+      scope: "TOTAL",
+      measurementType: "CURRENT",
+      value: 3,
+      unit: "level",
+      provider: "weatherdt",
+      sourceName: "WeatherDT",
+      confidence: 3,
+      createdAt: new Date("2026-08-30T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-30T00:00:00.000Z"),
+    };
+    const calls: unknown[][] = [];
+    const repository = {
+      findByLocation: async (...args: unknown[]) => {
+        calls.push(args);
+        return [historyObservation];
+      },
+      findByLocationAndTaxon: async () => [],
+    } as unknown as Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+
+    const { response, body } = await responseFor(
+      "/api/v1/locations/cn-city-beijing/history?measurementType=CURRENT&limit=1",
+      [],
+      { observationRepository: repository },
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.observations).toHaveLength(1);
+    expect(calls).toEqual([["cn-city-beijing", { measurementType: "CURRENT", limit: 1 }]]);
   });
 });

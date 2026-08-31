@@ -1135,3 +1135,18 @@ style: fix scraper loop indentation
 暂时不直接修改现有 WeatherDT 业务逻辑。
 
 先建立可独立测试的新架构骨架，再逐步迁移现有代码。
+
+---
+
+## 30. Observation 持久化原则
+
+统一 Observation 使用 additive `pollen_observations` 表保存；它不替换既有
+`pollen_data`、`scrape_log` 或 `pollen_ratings`。Provider 当前结果先返回给 API，
+再尽力写入记录层；持久化失败不能让真实 Provider 数据消失，也不能泄露数据库细节。
+
+`pollen_observations` 使用 observation `id` 作为 upsert identity，保存
+OBSERVATION / CURRENT / FORECAST / ESTIMATE 及可空时间字段。当前接口不得把旧记录
+作为无数据时的自动 fallback；历史记录只能由明确的 history 查询返回。
+
+现阶段 schema 由 additive initialization 建立。生产环境需要在引入破坏性变更前
+迁移到正式 migration system。
