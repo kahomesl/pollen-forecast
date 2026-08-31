@@ -7,6 +7,7 @@ export type PollenProviderCapability =
   | "CATEGORY_FORECAST"
   | "GENUS_OBSERVATION"
   | "GENUS_FORECAST"
+  | "TOTAL_ESTIMATE"
   | "HISTORY";
 
 export interface PollenProviderQuery {

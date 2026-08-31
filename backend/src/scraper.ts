@@ -6,8 +6,9 @@ import {
   haversineDistance,
   majorCities,
 } from './cityDirectory';
+import { createNearbyPollenEstimate } from './providers/NearbyPollenEstimate';
 import { WeatherDtProvider } from './providers/WeatherDtProvider';
-import { formatChinaDate } from './time/chinaDate';
+import { formatChinaDate, parseChinaDateStart } from './time/chinaDate';
 
 const weatherDtProvider = new WeatherDtProvider();
 
@@ -176,12 +177,19 @@ const interpolateFromNearbyCities = async (city: CityDef, dateStr: string): Prom
 
     const estimated = Math.round(valueSum / weightSum);
     const clamped = Math.max(0, Math.min(5, estimated));
+    const nearbyObservation = createNearbyPollenEstimate({
+      locationId: city.en,
+      value: clamped,
+      riskLabel: levelNames[clamped] || '未知',
+      validFrom: parseChinaDateStart(dateStr),
+      createdAt: new Date(),
+    });
 
     await sql`
       INSERT INTO pollen_data (city_en, city_cn, date, level_code, level_name, color, msg, source)
-      VALUES (${city.en}, ${city.cn}, ${dateStr}, ${clamped},
-              ${levelNames[clamped] || '未知'}, ${levelColors[clamped] || '#94a3b8'},
-              ${levelMsgs[clamped] || ''}, 'nearby')
+      VALUES (${city.en}, ${city.cn}, ${dateStr}, ${nearbyObservation.value ?? clamped},
+              ${nearbyObservation.riskLabel || '未知'}, ${levelColors[clamped] || '#94a3b8'},
+              ${levelMsgs[clamped] || ''}, ${nearbyObservation.provider})
       ON CONFLICT(city_en, date) DO NOTHING
     `;
     console.log(`[P2 nearby] ${city.cn}: interpolated level ${clamped} from ${neighbors.length} neighbors`);
