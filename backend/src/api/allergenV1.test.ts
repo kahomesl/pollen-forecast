@@ -216,4 +216,57 @@ describe("allergen v1 API", () => {
     expect(body.observations).toHaveLength(1);
     expect(calls).toEqual([["cn-city-beijing", { measurementType: "CURRENT", limit: 1 }]]);
   });
+
+  test("filters history by Artemisia without returning total observations", async () => {
+    const artemisiaObservation: PollenObservation = {
+      id: "beijing-artemisia-stored",
+      locationId: "cn-beijing-chaoyang",
+      taxonCode: "ARTEMISIA",
+      taxonNameCn: "蒿属",
+      taxonNameEn: "Artemisia",
+      scope: "GENUS",
+      measurementType: "FORECAST",
+      unit: "index",
+      provider: "beijing-pollen",
+      sourceName: "北京花粉监测",
+      confidence: 4,
+      createdAt: new Date("2026-08-30T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-30T00:00:00.000Z"),
+    };
+    const calls: unknown[][] = [];
+    const repository = {
+      findByLocation: async () => { throw new Error("total history must not be queried"); },
+      findByLocationAndTaxon: async (...args: unknown[]) => {
+        calls.push(args);
+        return [artemisiaObservation];
+      },
+    } as unknown as Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+
+    const { response, body } = await responseFor(
+      "/api/v1/locations/cn-beijing-chaoyang/history?taxon=artemisia&limit=2",
+      [],
+      { observationRepository: repository },
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.observations).toHaveLength(1);
+    expect(body.observations[0].taxon.code).toBe("ARTEMISIA");
+    expect(calls).toEqual([["cn-beijing-chaoyang", "ARTEMISIA", { limit: 2 }]]);
+  });
+
+  test("rejects history limits above the bounded maximum", async () => {
+    const repository = {
+      findByLocation: async () => [],
+      findByLocationAndTaxon: async () => [],
+    } as unknown as Pick<PollenObservationRepository, "findByLocation" | "findByLocationAndTaxon">;
+
+    const { response, body } = await responseFor(
+      "/api/v1/locations/cn-city-beijing/history?limit=501",
+      [],
+      { observationRepository: repository },
+    );
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: { code: "INVALID_LIMIT", message: "limit must be an integer from 1 to 500" } });
+  });
 });
