@@ -6,7 +6,10 @@ import {
   haversineDistance,
   majorCities,
 } from './cityDirectory';
+import { WeatherDtProvider } from './providers/WeatherDtProvider';
 import { formatChinaDate } from './time/chinaDate';
+
+const weatherDtProvider = new WeatherDtProvider();
 
 export async function scrapeSingleCity(cityEn: string, cityCn: string): Promise<void> {
   const today = new Date();
@@ -33,32 +36,28 @@ export function getScrapingStatus() {
 // Data Source: P0 - weatherdt (primary)
 // ============================================================
 const fetchPollenData = async (city: CityDef, startDate: string, endDate: string): Promise<boolean> => {
-  const url = `https://graph.weatherdt.com/ty/pollen/v2/hfindex.html?eletype=1&city=${city.en}&start=${startDate}&end=${endDate}&predictFlag=true`;
   let hasData = false;
   try {
     scrapingCities.add(city.en);
-    const response = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(10000),
+    const levels = await weatherDtProvider.fetchDailyLevels({
+      locationId: city.en,
+      startDate,
+      endDate,
+      includeForecast: true,
     });
-    if (!response.ok) return false;
 
-    const data: any = await response.json();
-    if (data && data.dataList && data.dataList.length > 0) {
-      for (const row of data.dataList) {
-        if (row.levelCode == null || row.levelCode < 0) continue;
-        await sql`
-          INSERT INTO pollen_data (city_en, city_cn, date, level_code, level_name, color, msg, source)
-          VALUES (${city.en}, ${city.cn}, ${row.addTime}, ${row.levelCode ?? -1}, ${row.level || '暂无'}, ${row.color || ''}, ${row.levelMsg || ''}, 'weatherdt')
-          ON CONFLICT(city_en, date) DO UPDATE SET
-            level_code = EXCLUDED.level_code,
-            level_name = EXCLUDED.level_name,
-            color = EXCLUDED.color,
-            msg = EXCLUDED.msg,
-            source = EXCLUDED.source
-        `;
-        hasData = true;
-      }
+    for (const level of levels) {
+      await sql`
+        INSERT INTO pollen_data (city_en, city_cn, date, level_code, level_name, color, msg, source)
+        VALUES (${city.en}, ${city.cn}, ${level.date}, ${level.levelCode}, ${level.levelName}, ${level.color}, ${level.message}, 'weatherdt')
+        ON CONFLICT(city_en, date) DO UPDATE SET
+          level_code = EXCLUDED.level_code,
+          level_name = EXCLUDED.level_name,
+          color = EXCLUDED.color,
+          msg = EXCLUDED.msg,
+          source = EXCLUDED.source
+      `;
+      hasData = true;
     }
   } catch (error) {
     console.error(`[P0 weatherdt] Error for ${city.en}:`, error);
