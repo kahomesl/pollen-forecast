@@ -35,7 +35,7 @@ runScrape().catch(console.error);
 
 const app = new Elysia()
   .use(cors())
-  .use(createAllergenV1Api({ observationRepository, observationStore }))
+  .use(createAllergenV1Api({ observationRepository, observationStore, syncRunRepository }))
   // Get all cities metadata (static list + coordinates)
   .get("/api/cities", () => {
     return majorCities.map(c => ({
