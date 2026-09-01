@@ -21,6 +21,36 @@ async function responseFor(
 }
 
 describe("allergen v1 API", () => {
+  test("publishes provider-derived Artemisia availability without making Android infer locations", async () => {
+    const beijingArtemisiaProvider: PollenProvider = {
+      id: "beijing-pollen",
+      name: "北京花粉监测",
+      capabilities: ["GENUS_FORECAST"],
+      supportedTaxa: ["ARTEMISIA"],
+      supportsLocation: (locationId) => locationId === "cn-beijing-chaoyang",
+      fetchForecast: async () => [],
+    };
+
+    const { response, body } = await responseFor("/api/v1/locations", [beijingArtemisiaProvider]);
+    const byId = new Map(body.map((location: { id: string }) => [location.id, location]));
+
+    expect(response.status).toBe(200);
+    expect(byId.get("cn-city-xian").taxonAvailability).toEqual([{
+      taxonCode: "ARTEMISIA",
+      status: "UNSUPPORTED",
+    }]);
+    expect(byId.get("cn-city-beijing").taxonAvailability).toEqual([{
+      taxonCode: "ARTEMISIA",
+      status: "CHILD_LOCATION_REQUIRED",
+      childScope: "DISTRICT",
+      childLocationLabel: "北京区县",
+    }]);
+    expect(byId.get("cn-beijing-chaoyang").taxonAvailability).toEqual([{
+      taxonCode: "ARTEMISIA",
+      status: "SUPPORTED",
+    }]);
+  });
+
   test("lists public canonical location metadata without upstream provider codes", async () => {
     const { response, body } = await responseFor("/api/v1/locations");
     const chaoyang = body.find((location: { id: string }) => location.id === "cn-beijing-chaoyang");
@@ -31,8 +61,10 @@ describe("allergen v1 API", () => {
       id: "cn-beijing-chaoyang",
       nameCn: "朝阳区",
       scope: "DISTRICT",
+      parentLocationId: "cn-city-beijing",
       latitude: 39.9215,
       longitude: 116.4864,
+      taxonAvailability: [{ taxonCode: "ARTEMISIA", status: "UNSUPPORTED" }],
     });
   });
 

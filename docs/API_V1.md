@@ -109,17 +109,37 @@ ARTEMISIA。北京 ARTEMISIA 示例见下面的属级预报接口。
     "nameCn": "北京",
     "scope": "CITY",
     "latitude": 39.9042,
-    "longitude": 116.4074
+    "longitude": 116.4074,
+    "taxonAvailability": [
+      {
+        "taxonCode": "ARTEMISIA",
+        "status": "CHILD_LOCATION_REQUIRED",
+        "childScope": "DISTRICT",
+        "childLocationLabel": "北京区县"
+      }
+    ]
   },
   {
     "id": "cn-beijing-chaoyang",
     "nameCn": "朝阳区",
     "scope": "DISTRICT",
+    "parentLocationId": "cn-city-beijing",
     "latitude": 39.9215,
-    "longitude": 116.4864
+    "longitude": 116.4864,
+    "taxonAvailability": [
+      { "taxonCode": "ARTEMISIA", "status": "SUPPORTED" }
+    ]
   }
 ]
 ```
+
+`taxonAvailability` 是 additive 的产品能力元数据，不代表当前时段有结果。`SUPPORTED`
+表示已有 Provider 可以为该 canonical location 查询该 taxon；其请求仍可因为上游
+有效空结果而返回空 `observations`。`UNSUPPORTED` 表示没有已注册 Provider 支持该
+location/taxon；`CHILD_LOCATION_REQUIRED` 表示该聚合位置的已知下级位置可支持该
+taxon，客户端应使用 `childScope` 和 `childLocationLabel` 引导用户选择，不能猜测
+具体下级位置。`parentLocationId` 仅出现在下级 canonical location 上，用于分组和
+导航；不会公开上游 city 或 area code。
 
 ## `GET /api/v1/locations/:locationId/allergens`
 

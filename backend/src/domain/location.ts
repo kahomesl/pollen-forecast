@@ -51,9 +51,21 @@ export const LOCATION_DEFINITIONS: readonly LocationDefinition[] = [
 ];
 
 const locationById = new Map(LOCATION_DEFINITIONS.map((location) => [location.id, location]));
+const parentLocationById = new Map<LocationId, LocationId>(
+  beijingDistrictLocations.map((location) => [location.id, "cn-city-beijing"]),
+);
 
 export function getLocationById(locationId: string): LocationDefinition | undefined {
   return locationById.get(locationId as LocationId);
+}
+
+/** Public canonical hierarchy; upstream provider codes remain private. */
+export function getParentLocationId(locationId: LocationId): LocationId | undefined {
+  return parentLocationById.get(locationId);
+}
+
+export function getChildLocations(locationId: LocationId): readonly LocationDefinition[] {
+  return LOCATION_DEFINITIONS.filter((location) => getParentLocationId(location.id) === locationId);
 }
 
 export function getWeatherDtCityCode(locationId: LocationId): string | undefined {

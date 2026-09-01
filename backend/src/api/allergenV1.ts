@@ -1,9 +1,15 @@
 import { Elysia } from "elysia";
 
-import { getLocationById, LOCATION_DEFINITIONS, type LocationDefinition } from "../domain/location";
+import {
+  getChildLocations,
+  getLocationById,
+  getParentLocationId,
+  LOCATION_DEFINITIONS,
+  type LocationDefinition,
+} from "../domain/location";
 import { MEASUREMENT_TYPES, type MeasurementType, type PollenObservation } from "../domain/pollenObservation";
 import { normalizeRiskSeverity } from "../domain/riskSeverity";
-import { getTaxonByCode, TAXON_DEFINITIONS } from "../domain/taxon";
+import { getTaxonByCode, TAXON_DEFINITIONS, type TaxonCode } from "../domain/taxon";
 import { pollenProviders } from "../providers/providerRegistry";
 import type { PollenProvider } from "../providers/PollenProvider";
 import type { PollenObservationRepository } from "../repositories/PollenObservationRepository";
@@ -33,7 +39,7 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
       capabilities: provider.capabilities,
       supportedTaxa: provider.supportedTaxa,
     })))
-    .get("/api/v1/locations", () => LOCATION_DEFINITIONS.map(toPublicLocation))
+    .get("/api/v1/locations", () => LOCATION_DEFINITIONS.map((location) => toPublicLocation(location, providers)))
     .get("/api/v1/sync/status", async () => ({
       latestRun: syncRunRepository ? await syncRunRepository.getLatestRun().then(serializeSyncRun) : null,
     }))
@@ -59,7 +65,7 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
         : await observationRepository.findByLocation(location.id, options);
 
       return {
-        location: toPublicLocation(location),
+        location: toPublicLocation(location, providers),
         observations: observations.map(serializeObservation),
       };
     })
@@ -72,7 +78,7 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
         providers,
       });
       await observationStore?.persist(result.observations);
-      return toApiQueryResult(location, result);
+      return toApiQueryResult(location, result, providers);
     })
     .get("/api/v1/locations/:locationId/allergens/:taxon", async ({ params, set }) => {
       const location = getLocationById(params.locationId);
@@ -87,27 +93,63 @@ export function createAllergenV1Api(options: AllergenV1ApiOptions = {}) {
         providers,
       });
       await observationStore?.persist(result.observations);
-      return toApiQueryResult(location, result);
+      return toApiQueryResult(location, result, providers);
     });
 }
 
-function toPublicLocation(location: LocationDefinition) {
+type TaxonAvailabilityStatus = "UNSUPPORTED" | "CHILD_LOCATION_REQUIRED" | "SUPPORTED";
+
+interface PublicTaxonAvailability {
+  readonly taxonCode: TaxonCode;
+  readonly status: TaxonAvailabilityStatus;
+  readonly childScope?: LocationDefinition["scope"];
+  readonly childLocationLabel?: string;
+}
+
+function toPublicLocation(location: LocationDefinition, providers: readonly PollenProvider[] = []) {
   return {
     id: location.id,
     nameCn: location.nameCn,
     ...(location.nameEn ? { nameEn: location.nameEn } : {}),
     scope: location.scope,
+    ...(getParentLocationId(location.id) ? { parentLocationId: getParentLocationId(location.id) } : {}),
     ...(location.latitude !== undefined ? { latitude: location.latitude } : {}),
     ...(location.longitude !== undefined ? { longitude: location.longitude } : {}),
+    taxonAvailability: TAXON_DEFINITIONS.map((taxon) => taxonAvailabilityFor(location, taxon.code, providers)),
   };
+}
+
+function taxonAvailabilityFor(
+  location: LocationDefinition,
+  taxonCode: TaxonCode,
+  providers: readonly PollenProvider[],
+): PublicTaxonAvailability {
+  if (providers.some((provider) => provider.supportedTaxa.includes(taxonCode) && provider.supportsLocation(location.id))) {
+    return { taxonCode, status: "SUPPORTED" };
+  }
+
+  const supportedChild = getChildLocations(location.id).find((child) => providers.some((provider) => (
+    provider.supportedTaxa.includes(taxonCode) && provider.supportsLocation(child.id)
+  )));
+  if (supportedChild) {
+    return {
+      taxonCode,
+      status: "CHILD_LOCATION_REQUIRED",
+      childScope: supportedChild.scope,
+      childLocationLabel: supportedChild.scope === "DISTRICT" ? "北京区县" : "下级位置",
+    };
+  }
+
+  return { taxonCode, status: "UNSUPPORTED" };
 }
 
 function toApiQueryResult(
   location: LocationDefinition,
   result: Awaited<ReturnType<typeof queryLocationAllergens>>,
+  providers: readonly PollenProvider[],
 ) {
   return {
-    location: toPublicLocation(location),
+    location: toPublicLocation(location, providers),
     observations: result.observations.map(serializeObservation),
     providersWithErrors: result.providersWithErrors,
   };
