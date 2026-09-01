@@ -15,7 +15,7 @@
 - Fly.io 生产环境应设置 `DATABASE_URL` 与 `FLY_API_TOKEN`，并在部署后探测 `/health`。当前部署工作流只在 `main` 推送时运行。
 - CORS 当前使用 Elysia 默认宽松配置；公开生产 API 前应限定允许的 Web origin，并确认 Android 客户端不依赖浏览器 CORS。
 - 上游 Provider 的超时、失败及同步结果会记录；生产日志应避免采集用户请求中的敏感信息，并设置保留期与告警策略。
-- WeatherDT 和北京花粉相关数据的长期抓取、再分发、商标及许可权利尚未由本项目验证。这是公开商业/大规模发布前的法律 blocker，不能以本文件替代授权。
+- WeatherDT 和北京花粉相关数据的长期抓取、再分发、商标及许可权利尚未由本项目验证。这是公开商业/大规模发布前的法律 blocker，不能以本文件替代授权。Phase G1 审计未找到可直接替代的全国 ARTEMISIA Provider；北京 `JKHS / 菊科蒿属` 是精确来源标签，但仍不构成缓存、离线、展示或通知的授权。详见 `ARTEMISIA_SOURCE_RESEARCH.md` 和 `ARTEMISIA_PROVIDER_SCORECARD.md`。
 - 数据语义限制（CURRENT 非实测、TOTAL 非 Artemisia、北京 Artemisia severity 为 UNKNOWN）见 `DATA_SOURCE_NOTES.md` 与 `RISK_SEVERITY.md`；运营文案不得淡化这些限制。
 - 应配置 PostgreSQL 备份、迁移演练、服务资源上限、错误告警和独立的上游可用性监测。它们目前不由仓库自动保证。
 
