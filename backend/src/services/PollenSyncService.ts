@@ -48,7 +48,7 @@ export interface PollenSyncServiceOptions {
 interface SyncTask {
   readonly provider: PollenProvider;
   readonly location: LocationDefinition;
-  readonly fetches: readonly (() => Promise<PollenObservation[] | undefined>)[];
+  readonly fetches: readonly (() => Promise<PollenObservation[]>)[];
 }
 
 interface SyncTaskResult {
@@ -93,9 +93,7 @@ export class PollenSyncService {
 
     return {
       runId: run.id,
-      status,
       startedAt: run.startedAt,
-      finishedAt,
       ...completion,
       providerErrors,
     };
@@ -138,11 +136,11 @@ export class PollenSyncService {
   }
 
   private async fetchWithRetry(
-    fetchObservations: () => Promise<PollenObservation[] | undefined>,
+    fetchObservations: () => Promise<PollenObservation[]>,
   ): Promise<{ observations: readonly PollenObservation[] } | { errorType: PollenSyncErrorType }> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        return { observations: await fetchObservations() ?? [] };
+        return { observations: await fetchObservations() };
       } catch (error) {
         const errorType = classifyError(error);
         if (attempt === 0 && errorType !== "UNKNOWN") {
@@ -165,20 +163,20 @@ export function getPollenSyncConcurrency(value = process.env.POLLEN_SYNC_CONCURR
     : DEFAULT_CONCURRENCY;
 }
 
-function createProviderFetches(provider: PollenProvider, locationId: LocationId): Array<() => Promise<PollenObservation[] | undefined>> {
-  const fetches: Array<() => Promise<PollenObservation[] | undefined>> = [];
+function createProviderFetches(provider: PollenProvider, locationId: LocationId): Array<() => Promise<PollenObservation[]>> {
+  const fetches: Array<() => Promise<PollenObservation[]>> = [];
   if (hasAnyCapability(provider, ["TOTAL_CURRENT", "TOTAL_OBSERVATION"]) && provider.fetchCurrent) {
-    fetches.push(() => provider.fetchCurrent?.({ locationId }));
+    fetches.push(() => provider.fetchCurrent!({ locationId }));
   }
   if (hasAnyCapability(provider, ["TOTAL_FORECAST", "CATEGORY_FORECAST"]) && provider.fetchForecast) {
-    fetches.push(() => provider.fetchForecast?.({ locationId }));
+    fetches.push(() => provider.fetchForecast!({ locationId }));
   }
   for (const taxonCode of provider.supportedTaxa) {
     if (hasAnyCapability(provider, ["GENUS_CURRENT", "GENUS_OBSERVATION"]) && provider.fetchCurrent) {
-      fetches.push(() => provider.fetchCurrent?.({ locationId, taxonCode }));
+      fetches.push(() => provider.fetchCurrent!({ locationId, taxonCode }));
     }
     if (hasAnyCapability(provider, ["GENUS_FORECAST"]) && provider.fetchForecast) {
-      fetches.push(() => provider.fetchForecast?.({ locationId, taxonCode }));
+      fetches.push(() => provider.fetchForecast!({ locationId, taxonCode }));
     }
   }
   return fetches;

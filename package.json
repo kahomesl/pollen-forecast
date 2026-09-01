@@ -8,6 +8,7 @@
     "dev:backend": "bun run backend/src/index.ts",
     "dev:frontend": "bun run --cwd frontend dev",
     "build": "bun run --cwd frontend build",
+    "typecheck:backend": "bunx tsc --noEmit --project tsconfig.backend.json",
     "sync:pollen": "bun run backend/src/sync.ts",
     "start": "bun run backend/src/index.ts",
     "lint:frontend": "bun run --cwd frontend lint"

@@ -1,0 +1,44 @@
+name: Verify feature branch
+
+on:
+  push:
+    branches:
+      - "feature/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-and-web:
+    name: Backend tests and web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install backend dependencies
+        run: bun install --frozen-lockfile
+      - name: Test backend
+        run: bun test
+      - name: Typecheck backend
+        run: bun run typecheck:backend
+      - name: Install web dependencies
+        run: bun install --cwd frontend --frozen-lockfile
+      - name: Build web
+        run: bun run --cwd frontend build
+
+  android:
+    name: Android Debug quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android compile SDK
+        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+      - name: Test, lint, and assemble Debug
+        working-directory: android
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
