@@ -1,5 +1,10 @@
 package com.kahomesl.allergenradar.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +69,8 @@ import com.kahomesl.allergenradar.data.RepositoryDataSource
 import com.kahomesl.allergenradar.data.RiskDto
 import com.kahomesl.allergenradar.data.RiskSeverityDto
 import com.kahomesl.allergenradar.data.SourceDto
+import com.kahomesl.allergenradar.notifications.RiskAlertSettings
+import kotlinx.coroutines.launch
 import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryMeasurementFilter
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryTaxonFilter
@@ -92,6 +100,13 @@ fun AllergenRadarApp(container: AppContainer) {
     val locationState by locationViewModel.state.collectAsStateWithLifecycle()
     val historyState by historyViewModel.state.collectAsStateWithLifecycle()
     val myState by myViewModel.state.collectAsStateWithLifecycle()
+    val alertSettings by container.riskAlertPreference.settings.collectAsStateWithLifecycle(RiskAlertSettings())
+    val scope = rememberCoroutineScope()
+    var notificationPermissionDenied by remember { mutableStateOf(false) }
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = true)) }
+        else notificationPermissionDenied = true
+    }
     var screen by remember { mutableStateOf(AppScreen.HOME) }
 
     if (screen == AppScreen.DATA_INFO) {
@@ -121,7 +136,11 @@ fun AllergenRadarApp(container: AppContainer) {
                 historyViewModel::setMeasurement,
                 Modifier.padding(padding),
             )
-            AppScreen.MY -> MyContent(myState, myViewModel::refresh, { screen = AppScreen.DATA_INFO }, Modifier.padding(padding))
+            AppScreen.MY -> MyContent(myState, myViewModel::refresh, { screen = AppScreen.DATA_INFO }, alertSettings, notificationPermissionDenied, { updated -> scope.launch { container.riskAlertPreference.update(updated) } }, { enabled ->
+                if (!enabled) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = false)) }
+                else if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = true)) }
+            }, Modifier.padding(padding))
             AppScreen.DATA_INFO -> Unit
         }
     }
@@ -375,7 +394,7 @@ private fun HistoryRow(observation: ObservationDto) {
 }
 
 @Composable
-fun MyContent(state: MyUiState, onRefresh: () -> Unit, onDataInfo: () -> Unit, modifier: Modifier = Modifier) {
+fun MyContent(state: MyUiState, onRefresh: () -> Unit, onDataInfo: () -> Unit, alertSettings: RiskAlertSettings = RiskAlertSettings(), permissionDenied: Boolean = false, onSettingsChange: (RiskAlertSettings) -> Unit = {}, onAlertsEnabled: (Boolean) -> Unit = {}, modifier: Modifier = Modifier) {
     LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -384,6 +403,13 @@ fun MyContent(state: MyUiState, onRefresh: () -> Unit, onDataInfo: () -> Unit, m
             }
         }
         item { StatusCard("当前位置", state.locationName) }
+        item { ListItem(headlineContent = { Text("风险提醒") }, supportingContent = { Text(if (alertSettings.enabled) "已开启 · 最低等级 ${alertSettings.minimumSeverity.name}" else "默认关闭；依据数据源风险等级，不代表个人医学风险。") }, trailingContent = { androidx.compose.material3.Switch(alertSettings.enabled, onAlertsEnabled) }) }
+        if (permissionDenied) item { Text("系统通知权限未开启", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        if (alertSettings.enabled) {
+            item { FilterChip(alertSettings.notifyTotal, { onSettingsChange(alertSettings.copy(notifyTotal = !alertSettings.notifyTotal)) }, { Text("综合花粉") }) }
+            item { FilterChip(alertSettings.notifyArtemisia, { onSettingsChange(alertSettings.copy(notifyArtemisia = !alertSettings.notifyArtemisia)) }, { Text("蒿属") }) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(RiskSeverityDto.MODERATE, RiskSeverityDto.HIGH, RiskSeverityDto.VERY_HIGH).forEach { severity -> FilterChip(alertSettings.minimumSeverity == severity, { onSettingsChange(alertSettings.copy(minimumSeverity = severity)) }, { Text(severity.name) }) } } }
+        }
         item { StatusCard("API 状态", when (state.apiAvailable) { true -> "连接正常"; false -> "暂时不可用"; null -> "正在检查" }) }
         item {
             val run = state.latestRun

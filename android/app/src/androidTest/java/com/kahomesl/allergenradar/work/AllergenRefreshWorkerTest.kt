@@ -76,9 +76,9 @@ class AllergenRefreshWorkerTest {
         private val sources: List<RepositoryDataSource> = emptyList(),
         private val error: Throwable? = null,
     ) : CurrentLocationRefreshTarget {
-        override suspend fun refreshSelectedLocation(): List<RepositoryDataSource> {
+        override suspend fun refreshSelectedLocation(): RefreshSnapshot {
             error?.let { throw it }
-            return sources
+            return RefreshSnapshot(sources)
         }
     }
 }

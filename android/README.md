@@ -9,6 +9,12 @@ Phase A 是原生 Jetpack Compose 客户端，使用 Retrofit/OkHttp 访问 `doc
 标识。WorkManager 每两小时仅刷新已选择的位置。详细语义见
 [`docs/OFFLINE_CACHE.md`](docs/OFFLINE_CACHE.md)。
 
+## Phase D：标准化风险与本地提醒
+
+API v1 的 `risk.severity` 仅在 Provider 语义已确认时使用。风险提醒默认关闭，使用
+DataStore 保存对象、阈值和去重状态；仅真实网络数据可以经既有 WorkManager 刷新触发。
+详见 [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md)。
+
 ## 构建环境
 
 - Gradle 9.4.1（项目内 Gradle Wrapper）
