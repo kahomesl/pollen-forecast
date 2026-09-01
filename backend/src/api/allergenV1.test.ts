@@ -99,7 +99,7 @@ describe("allergen v1 API", () => {
       measurementType: "CURRENT",
       value: 4,
       unit: "level",
-      risk: { level: 4 },
+      risk: { level: 4, severity: "HIGH" },
       provider: "weatherdt",
       source: { name: "WeatherDT", url: "https://example.test/weatherdt" },
       confidence: 3,
@@ -194,6 +194,7 @@ describe("allergen v1 API", () => {
       measurementType: "CURRENT",
       value: 3,
       unit: "level",
+      riskLevel: 3,
       provider: "weatherdt",
       sourceName: "WeatherDT",
       confidence: 3,
@@ -217,6 +218,7 @@ describe("allergen v1 API", () => {
 
     expect(response.status).toBe(200);
     expect(body.observations).toHaveLength(1);
+    expect(body.observations[0].risk).toEqual({ level: 3, severity: "MODERATE" });
     expect(calls).toEqual([["cn-city-beijing", { measurementType: "CURRENT", limit: 1 }]]);
   });
 

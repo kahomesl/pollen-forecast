@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 
 import { getLocationById, LOCATION_DEFINITIONS, type LocationDefinition } from "../domain/location";
 import { MEASUREMENT_TYPES, type MeasurementType, type PollenObservation } from "../domain/pollenObservation";
+import { normalizeRiskSeverity } from "../domain/riskSeverity";
 import { getTaxonByCode, TAXON_DEFINITIONS } from "../domain/taxon";
 import { pollenProviders } from "../providers/providerRegistry";
 import type { PollenProvider } from "../providers/PollenProvider";
@@ -133,6 +134,13 @@ function serializeObservation(observation: PollenObservation) {
     risk: {
       ...(observation.riskLevel !== undefined ? { level: observation.riskLevel } : {}),
       ...(observation.riskLabel ? { label: observation.riskLabel } : {}),
+      severity: normalizeRiskSeverity({
+        provider: observation.provider,
+        riskLevel: observation.riskLevel,
+        riskLabel: observation.riskLabel,
+        scope: observation.scope,
+        taxonCode: observation.taxonCode,
+      }),
     },
     provider: observation.provider,
     source: {
