@@ -15,6 +15,10 @@ API v1 的 `risk.severity` 仅在 Provider 语义已确认时使用。风险提�
 DataStore 保存对象、阈值和去重状态；仅真实网络数据可以经既有 WorkManager 刷新触发。
 详见 [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md)。
 
+## Phase E：附近支持位置与 beta 就绪
+
+“使用当前位置”仅在用户点按后请求前台粗略定位。坐标只在本机即时匹配现有标准位置列表，候选位置必须经用户确认后才会保存标准位置编号；不会上传、持久化或记录原始坐标。手动位置选择、离线位置缓存标识和既有后台刷新保持不变。详见 [`docs/PRIVACY.md`](docs/PRIVACY.md) 与 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)。
+
 ## 构建环境
 
 - Gradle 9.4.1（项目内 Gradle Wrapper）
@@ -25,7 +29,7 @@ DataStore 保存对象、阈值和去重状态；仅真实网络数据可以经�
 
 默认 Debug API 地址为 Android 模拟器访问宿主机的 `http://10.0.2.2:8080/`。可在 `android/local.properties` 增加 `API_BASE_URL=https://.../`，或使用 `-PAPI_BASE_URL=https://.../` 覆盖。`local.properties` 不应提交。
 
-Release 构建不会默认连接 localhost；发布前必须显式配置真实 HTTPS API 地址。
+Release 构建不会默认连接 localhost；发布前必须显式配置真实 HTTPS API 地址。Release 包还要求仅通过环境变量提供以下签名配置：`ALLERGENRADAR_RELEASE_STORE_FILE`、`ALLERGENRADAR_RELEASE_STORE_PASSWORD`、`ALLERGENRADAR_RELEASE_KEY_ALIAS` 和 `ALLERGENRADAR_RELEASE_KEY_PASSWORD`。当前 beta 为 `0.1.0-beta.1`（versionCode `2`），R8 暂未启用。
 
 ## 常用命令
 

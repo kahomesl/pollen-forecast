@@ -90,7 +90,7 @@ import com.kahomesl.allergenradar.util.formatCachedTime
 import java.util.Locale
 
 private enum class AppScreen(val label: String) {
-    HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"),
+    HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"), PRIVACY_INFO("隐私与数据来源"),
 }
 
 @Composable
@@ -120,6 +120,10 @@ fun AllergenRadarApp(container: AppContainer) {
 
     if (screen == AppScreen.DATA_INFO) {
         DataExplanationScreen(onBack = { screen = AppScreen.MY })
+        return
+    }
+    if (screen == AppScreen.PRIVACY_INFO) {
+        PrivacyAndSourcesScreen(onBack = { screen = AppScreen.MY })
         return
     }
 
@@ -160,12 +164,22 @@ fun AllergenRadarApp(container: AppContainer) {
                 historyViewModel::setMeasurement,
                 Modifier.padding(padding),
             )
-            AppScreen.MY -> MyContent(myState, myViewModel::refresh, { screen = AppScreen.DATA_INFO }, alertSettings, notificationPermissionDenied, { updated -> scope.launch { container.riskAlertPreference.update(updated) } }, { enabled ->
-                if (!enabled) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = false)) }
-                else if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = true)) }
-            }, Modifier.padding(padding))
-            AppScreen.DATA_INFO -> Unit
+            AppScreen.MY -> MyContent(
+                state = myState,
+                onRefresh = myViewModel::refresh,
+                onDataInfo = { screen = AppScreen.DATA_INFO },
+                onPrivacyInfo = { screen = AppScreen.PRIVACY_INFO },
+                alertSettings = alertSettings,
+                permissionDenied = notificationPermissionDenied,
+                onSettingsChange = { updated -> scope.launch { container.riskAlertPreference.update(updated) } },
+                onAlertsEnabled = { enabled ->
+                    if (!enabled) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = false)) }
+                    else if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = true)) }
+                },
+                modifier = Modifier.padding(padding),
+            )
+            AppScreen.DATA_INFO, AppScreen.PRIVACY_INFO -> Unit
         }
     }
 }
@@ -310,10 +324,10 @@ fun LocationContent(
     state: LocationUiState,
     onRefresh: () -> Unit,
     onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
     onUseCurrentLocation: () -> Unit = {},
     onConfirmNearbyLocation: () -> Unit = {},
     locationPermissionDenied: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     var query by remember { mutableStateOf("") }
     val visible = state.locations.filter { it.nameCn.contains(query, ignoreCase = true) }
@@ -450,7 +464,17 @@ private fun HistoryRow(observation: ObservationDto) {
 }
 
 @Composable
-fun MyContent(state: MyUiState, onRefresh: () -> Unit, onDataInfo: () -> Unit, alertSettings: RiskAlertSettings = RiskAlertSettings(), permissionDenied: Boolean = false, onSettingsChange: (RiskAlertSettings) -> Unit = {}, onAlertsEnabled: (Boolean) -> Unit = {}, modifier: Modifier = Modifier) {
+fun MyContent(
+    state: MyUiState,
+    onRefresh: () -> Unit,
+    onDataInfo: () -> Unit,
+    onPrivacyInfo: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    alertSettings: RiskAlertSettings = RiskAlertSettings(),
+    permissionDenied: Boolean = false,
+    onSettingsChange: (RiskAlertSettings) -> Unit = {},
+    onAlertsEnabled: (Boolean) -> Unit = {},
+) {
     LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -483,8 +507,16 @@ fun MyContent(state: MyUiState, onRefresh: () -> Unit, onDataInfo: () -> Unit, a
                 modifier = Modifier.clickable(onClick = onDataInfo),
             )
         }
+        item {
+            ListItem(
+                headlineContent = { Text("隐私与数据来源") },
+                supportingContent = { Text("位置、通知与花粉数据的使用方式") },
+                leadingContent = { Icon(Icons.Default.Info, null) },
+                modifier = Modifier.clickable(onClick = onPrivacyInfo),
+            )
+        }
         item { HorizontalDivider() }
-        item { Text("版本 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { Text("版本 ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -515,6 +547,25 @@ private fun DataExplanationScreen(onBack: () -> Unit) {
             item { ExplanationItem("北京蒿属数据", "仅当上游提供有效的蒿属数据时才会显示，不会由综合花粉推算。") }
             item { ExplanationItem("没有数据不等于零", "暂无数据表示当前没有可用的独立结果，不代表不存在风险。") }
             item { ExplanationItem("时间含义", "“数据更新于”来自 retrievedAt；观测时间和预报有效期会在上游提供时单独显示。") }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun PrivacyAndSourcesScreen(onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Scaffold(topBar = {
+        TopAppBar(title = { Text("隐私与数据来源") }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+        })
+    }) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            item { ExplanationItem("当前位置", "仅在你点按“使用当前位置”后请求粗略定位。坐标只在本机即时匹配附近支持位置，不会上传、记录或保存。") }
+            item { ExplanationItem("本地保存", "确认后仅保存你选择的标准位置编号；离线缓存保存花粉响应。") }
+            item { ExplanationItem("通知", "风险提醒默认关闭。开启后，设备仅根据已选位置的真实网络数据在本机评估并发布系统通知。") }
+            item { ExplanationItem("数据来源", "综合花粉主要来自 WeatherDT；北京蒿属仅在上游提供有效独立结果时显示。数据仅供健康防护参考，不构成医疗建议。") }
+            item { ExplanationItem("不包含", "本应用不提供账号、广告 SDK、Firebase、分析跟踪或健康档案功能。") }
         }
     }
 }
