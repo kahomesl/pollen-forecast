@@ -26,6 +26,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
 import com.kahomesl.allergenradar.AppContainer
 import com.kahomesl.allergenradar.notifications.RiskAlertSettings
@@ -52,6 +55,16 @@ fun AllergenRadarApp(container: AppContainer) {
     var focusDistricts by remember { mutableStateOf(false) }
     var notificationDenied by remember { mutableStateOf(false) }
     var locationDenied by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, alerts.enabled, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationDenied = alerts.enabled && notificationPermissionMissing(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) scope.launch { container.riskAlertPreference.update(alerts.copy(enabled = true)) } else notificationDenied = true
     }
@@ -109,3 +122,6 @@ fun AllergenRadarApp(container: AppContainer) {
 }
 
 fun measurementLabel(type: String): String = displayMeasurementLabel(type)
+
+private fun notificationPermissionMissing(context: android.content.Context): Boolean =
+    Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED

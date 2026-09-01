@@ -41,7 +41,7 @@ fun PremiumMyScreen(
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = RadarSpacing.lg, vertical = RadarSpacing.xl), verticalArrangement = Arrangement.spacedBy(RadarSpacing.md)) {
         item { PageTitle("我的", "个人设置与应用信息", action = { IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, "刷新状态") } }) }
-        item { RadarCard { SettingRow(Icons.Default.LocationOn, "当前位置", state.locationName) { IconButton(onClick = onOpenLocations) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "切换位置") } } } }
+        item { RadarCard { SettingRow(Icons.Default.LocationOn, "当前位置", state.locationName, onOpenLocations) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "切换位置") } } }
         item {
             RadarCard(highlighted = true) {
                 Row(verticalAlignment = Alignment.CenterVertically) { IconDisc(Icons.Default.Notifications, "风险提醒", MaterialTheme.colorScheme.error); Spacer(Modifier.width(RadarSpacing.sm)); Text("风险提醒", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
@@ -64,14 +64,14 @@ fun PremiumMyScreen(
                 SettingRow(Icons.Default.Sync, "API 状态", when (state.apiAvailable) { true -> "连接正常"; false -> "暂时不可用"; null -> "正在检查" })
                 SettingRow(Icons.Default.Sync, "最近同步", state.latestRun?.finishedAt?.let { formatLocalTime(it) } ?: "暂无同步记录")
                 HorizontalDivider()
-                SettingRow(Icons.Default.Info, "数据说明", "数据类型、风险等级与来源") { IconButton(onClick = onOpenDataInfo) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "数据说明") } }
+                SettingRow(Icons.Default.Info, "数据说明", "数据类型、风险等级与来源", onOpenDataInfo) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "数据说明") }
             }
         }
         item {
             RadarCard {
                 SectionHeader("隐私与关于")
-                SettingRow(Icons.Default.PrivacyTip, "隐私说明", "定位、缓存与通知偏好") { IconButton(onClick = onOpenPrivacy) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "隐私说明") } }
-                SettingRow(Icons.Default.Settings, "关于", "应用版本与数据来源") { IconButton(onClick = onOpenAbout) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "关于") } }
+                SettingRow(Icons.Default.PrivacyTip, "隐私说明", "定位、缓存与通知偏好", onOpenPrivacy) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "隐私说明") }
+                SettingRow(Icons.Default.Settings, "关于", "应用版本与数据来源", onOpenAbout) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "关于") }
             }
         }
         item { Text("版本 ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }

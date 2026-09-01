@@ -1,6 +1,7 @@
 package com.kahomesl.allergenradar.ui.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -94,8 +95,9 @@ fun InfoBanner(icon: ImageVector, title: String, body: String, modifier: Modifie
 }
 
 @Composable
-fun SettingRow(icon: ImageVector, title: String, supporting: String? = null, trailing: @Composable RowScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(vertical = RadarSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
+fun SettingRow(icon: ImageVector, title: String, supporting: String? = null, onClick: (() -> Unit)? = null, trailing: @Composable RowScope.() -> Unit = {}) {
+    val rowModifier = Modifier.fillMaxWidth().then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)).padding(vertical = RadarSpacing.sm)
+    Row(rowModifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
         Spacer(Modifier.width(RadarSpacing.sm))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RadarSpacing.xxs)) {

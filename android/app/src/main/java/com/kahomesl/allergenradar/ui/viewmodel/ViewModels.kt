@@ -196,6 +196,7 @@ class LocationViewModel(
 }
 
 enum class HistoryTaxonFilter(val title: String, val taxon: String?) {
+    ALL("全部", null),
     TOTAL("综合花粉", null),
     ARTEMISIA("蒿属", ARTEMISIA_TAXON),
 }
@@ -212,7 +213,7 @@ data class HistoryUiState(
     val isLoading: Boolean = true,
     val locationName: String = "北京",
     val observations: List<ObservationDto> = emptyList(),
-    val taxonFilter: HistoryTaxonFilter = HistoryTaxonFilter.TOTAL,
+    val taxonFilter: HistoryTaxonFilter = HistoryTaxonFilter.ALL,
     val measurementFilter: HistoryMeasurementFilter = HistoryMeasurementFilter.ALL,
     val source: RepositoryDataSource? = null,
     val cachedAt: Long? = null,
