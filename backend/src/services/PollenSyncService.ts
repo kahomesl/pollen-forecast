@@ -43,6 +43,11 @@ export interface PollenSyncServiceOptions {
   readonly concurrency?: number;
   readonly now?: () => Date;
   readonly delay?: (milliseconds: number) => Promise<void>;
+  readonly logger?: Pick<SyncLogger, "info">;
+}
+
+export interface SyncLogger {
+  info(event: Record<string, string | number | boolean>): void;
 }
 
 interface SyncTask {
@@ -62,12 +67,14 @@ export class PollenSyncService {
   private readonly concurrency: number;
   private readonly now: () => Date;
   private readonly delay: (milliseconds: number) => Promise<void>;
+  private readonly logger?: Pick<SyncLogger, "info">;
 
   constructor(private readonly options: PollenSyncServiceOptions) {
     this.locations = options.locations ?? LOCATION_DEFINITIONS;
     this.concurrency = normalizeConcurrency(options.concurrency ?? getPollenSyncConcurrency());
     this.now = options.now ?? (() => new Date());
     this.delay = options.delay ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.logger = options.logger;
   }
 
   async runPollenSync(trigger: PollenSyncTrigger = "MANUAL"): Promise<PollenSyncResult> {
@@ -109,6 +116,7 @@ export class PollenSyncService {
   }
 
   private async syncTask(task: SyncTask): Promise<SyncTaskResult> {
+    const startedAt = this.now();
     const observations: PollenObservation[] = [];
     const errors: PollenSyncProviderError[] = [];
 
@@ -127,6 +135,17 @@ export class PollenSyncService {
     if (observations.length > 0 && observationsPersisted !== observations.length) {
       errors.push({ providerId: task.provider.id, locationId: task.location.id, errorType: "UNKNOWN" });
     }
+
+    this.logger?.info({
+      event: "provider_sync_completed",
+      providerId: task.provider.id,
+      locationId: task.location.id,
+      status: errors.length === 0 ? "SUCCESS" : "ERROR",
+      durationMs: Math.max(0, this.now().getTime() - startedAt.getTime()),
+      timeout: errors.some((error) => error.errorType === "TIMEOUT"),
+      observationsReceived: observations.length,
+      observationsPersisted,
+    });
 
     return {
       observationsReceived: observations.length,

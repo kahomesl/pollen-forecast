@@ -1,11 +1,9 @@
 import postgres from 'postgres';
+import { parseRuntimeConfig } from './config';
 import { initializePollenObservationSchema, type SqlExecutor } from './db/pollenObservationSchema';
 import { initializePollenSyncRunSchema } from './db/pollenSyncRunSchema';
 
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
-}
+const DATABASE_URL = parseRuntimeConfig().databaseUrl;
 
 const sql = postgres(DATABASE_URL, {
   max: 10,

@@ -10,21 +10,27 @@ import { ObservationStore } from "./services/ObservationStore";
 import { PollenScheduler } from "./services/PollenScheduler";
 import { isStartupScrapeEnabled } from "./services/startupScrape";
 import { PollenSyncService } from "./services/PollenSyncService";
-import { pollenProviders } from "./providers/providerRegistry";
+import { getEnabledPollenProviders } from "./providers/providerRegistry";
 import { SyncRunRepository, type PollenSyncRunSql } from "./repositories/SyncRunRepository";
 import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
 import { checkHealth } from "./health";
+import { parseRuntimeConfig } from "./config";
+import { createPublicApiSafetyHandlers, InMemoryApiRateLimiter } from "./runtimeSafety";
+import { createStructuredLogger } from "./observability";
 
-const port = process.env.PORT ?? 8080;
+const config = parseRuntimeConfig();
+const logger = createStructuredLogger(config.logLevel);
+const port = config.port;
 const staticDir = path.join(__dirname, '../../frontend/dist');
 const observationRepository = new PollenObservationRepository(sql as unknown as PollenObservationSql);
 const observationStore = new ObservationStore(observationRepository);
 const syncRunRepository = new SyncRunRepository(sql as unknown as PollenSyncRunSql);
 const pollenSyncService = new PollenSyncService({
-  providers: pollenProviders,
+  providers: getEnabledPollenProviders(config.providerEnabled),
   observationStore,
   syncRunRepository,
+  logger,
 });
 const pollenScheduler = new PollenScheduler({ syncService: pollenSyncService });
 
@@ -33,10 +39,26 @@ await initDB();
 // The optional scheduler waits for its first interval.
 pollenScheduler.start();
 // Legacy startup scraping is opt-in; manual sync remains available via `bun run sync:pollen`.
-if (isStartupScrapeEnabled()) runScrape().catch(console.error);
+if (isStartupScrapeEnabled()) runScrape({ externalPollenFetchEnabled: config.externalPollenFetchEnabled }).catch(() => {
+  console.error("Legacy startup pollen scrape failed");
+});
+
+const publicApiSafety = createPublicApiSafetyHandlers({
+  rateLimiter: new InMemoryApiRateLimiter({
+    windowMs: config.rateLimitWindowSeconds * 1_000,
+    maxRequests: config.rateLimitMax,
+  }),
+});
 
 const app = new Elysia()
-  .use(cors())
+  .use(cors({
+    origin: [...config.allowedOrigins],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["content-type", "x-request-id"],
+    exposeHeaders: ["x-request-id"],
+  }))
+  .onRequest(publicApiSafety.onRequest)
+  .onError(publicApiSafety.onError)
   .get("/health", async ({ set }) => {
     const health = await checkHealth({ checkDatabase: checkDatabaseConnection });
     if (!health.database) set.status = 503;
@@ -95,7 +117,7 @@ const app = new Elysia()
         const matched = findCityByChineseName(cityName);
         if (matched) {
           // Scrape this city on demand
-          await scrapeSingleCity(matched.en, matched.cn);
+          await scrapeSingleCity(matched.en, matched.cn, { externalPollenFetchEnabled: config.externalPollenFetchEnabled });
           const rows = await sql`
             SELECT city_cn as city, city_en, date, level_code as "levelCode", level_name as level, color, msg, source
             FROM pollen_data WHERE city_en = ${matched.en} AND date = ${today} LIMIT 1
@@ -130,7 +152,9 @@ const app = new Elysia()
   })
   // Get today's pollen data
   .get("/api/pollen", async () => {
-    runScrape().catch(console.error);
+    runScrape({ externalPollenFetchEnabled: config.externalPollenFetchEnabled }).catch(() => {
+      console.error("Legacy pollen scrape failed");
+    });
 
     const today = formatChinaDate();
     const data = await sql`
@@ -143,7 +167,9 @@ const app = new Elysia()
   })
   // Get historical pollen data for a city
   .get("/api/pollen/:city", async ({ params: { city } }) => {
-    runScrape().catch(console.error);
+    runScrape({ externalPollenFetchEnabled: config.externalPollenFetchEnabled }).catch(() => {
+      console.error("Legacy pollen scrape failed");
+    });
 
     const data = await sql`
       SELECT date, level_code as "levelCode", level_name as level, color, msg, source
@@ -222,3 +248,17 @@ const app = new Elysia()
 console.log(
   `🌿 花粉雷达 server running at ${app.server?.hostname}:${app.server?.port}`
 );
+
+let shuttingDown = false;
+async function shutdown(signal: "SIGINT" | "SIGTERM"): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(JSON.stringify({ event: "shutdown_started", signal }));
+  pollenScheduler.stop();
+  app.stop();
+  await sql.end({ timeout: 5 });
+  console.log(JSON.stringify({ event: "shutdown_completed", signal }));
+}
+
+process.once("SIGINT", () => { void shutdown("SIGINT"); });
+process.once("SIGTERM", () => { void shutdown("SIGTERM"); });

@@ -10,12 +10,13 @@
     "build": "bun run --cwd frontend build",
     "typecheck:backend": "bunx tsc --noEmit --project tsconfig.backend.json",
     "sync:pollen": "bun run backend/src/sync.ts",
+    "migrate:db": "bun run backend/src/migrate.ts",
     "start": "bun run backend/src/index.ts",
     "lint:frontend": "bun run --cwd frontend lint"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "axios": "^1.14.0"
+    "axios": "^1.18.0"
   },
   "peerDependencies": {
     "typescript": "^5"

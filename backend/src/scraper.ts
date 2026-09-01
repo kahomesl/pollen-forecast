@@ -12,7 +12,12 @@ import { formatChinaDate, parseChinaDateStart } from './time/chinaDate';
 
 const weatherDtProvider = new WeatherDtProvider();
 
-export async function scrapeSingleCity(cityEn: string, cityCn: string): Promise<void> {
+export async function scrapeSingleCity(
+  cityEn: string,
+  cityCn: string,
+  { externalPollenFetchEnabled = true }: { readonly externalPollenFetchEnabled?: boolean } = {},
+): Promise<void> {
+  if (!externalPollenFetchEnabled) return;
   const today = new Date();
   const endDate = formatChinaDate(today);
   const past = new Date(today);
@@ -60,8 +65,8 @@ const fetchPollenData = async (city: CityDef, startDate: string, endDate: string
       `;
       hasData = true;
     }
-  } catch (error) {
-    console.error(`[P0 weatherdt] Error for ${city.en}:`, error);
+  } catch {
+    console.error(`[P0 weatherdt] failed for ${city.en}`);
   } finally {
     scrapingCities.delete(city.en);
   }
@@ -115,8 +120,8 @@ const fetchQWeatherPollen = async (city: CityDef, dateStr: string): Promise<bool
     `;
     console.log(`[P1 qweather] ${city.cn}: level ${level} → ${mapped.name}`);
     return true;
-  } catch (error) {
-    console.error(`[P1 qweather] Error for ${city.en}:`, error);
+  } catch {
+    console.error(`[P1 qweather] failed for ${city.en}`);
     return false;
   } finally {
     scrapingCities.delete(city.en);
@@ -194,8 +199,8 @@ const interpolateFromNearbyCities = async (city: CityDef, dateStr: string): Prom
     `;
     console.log(`[P2 nearby] ${city.cn}: interpolated level ${clamped} from ${neighbors.length} neighbors`);
     return true;
-  } catch (error) {
-    console.error(`[P2 nearby] Error for ${city.en}:`, error);
+  } catch {
+    console.error(`[P2 nearby] failed for ${city.en}`);
     return false;
   }
 };
@@ -203,7 +208,10 @@ const interpolateFromNearbyCities = async (city: CityDef, dateStr: string): Prom
 // ============================================================
 // Main scrape orchestrator with fallback chain
 // ============================================================
-export const runScrape = async () => {
+export const runScrape = async (
+  { externalPollenFetchEnabled = true }: { readonly externalPollenFetchEnabled?: boolean } = {},
+) => {
+  if (!externalPollenFetchEnabled) return;
   if (isScraping) return;
 
   // Check rate limit: 15 minutes

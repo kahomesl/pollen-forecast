@@ -167,4 +167,35 @@ describe("PollenSyncService", () => {
     expect(getPollenSyncConcurrency("4")).toBe(4);
     expect(getPollenSyncConcurrency("999")).toBe(10);
   });
+
+  test("records provider outcomes without raw provider errors", async () => {
+    const events: unknown[] = [];
+    const runs = createRunRepository();
+    const provider: PollenProvider = {
+      id: "weatherdt",
+      name: "WeatherDT",
+      capabilities: ["TOTAL_CURRENT"],
+      supportedTaxa: [],
+      supportsLocation: () => true,
+      fetchCurrent: async () => { throw new Error("sensitive provider response"); },
+    };
+    const service = new PollenSyncService({
+      providers: [provider],
+      locations: [city],
+      observationStore: { persistAndCount: async () => 0 },
+      syncRunRepository: runs,
+      logger: { info: (event) => events.push(event) },
+    });
+
+    await service.runPollenSync();
+
+    expect(events).toEqual([expect.objectContaining({
+      event: "provider_sync_completed",
+      providerId: "weatherdt",
+      status: "ERROR",
+      observationsReceived: 0,
+      observationsPersisted: 0,
+    })]);
+    expect(JSON.stringify(events)).not.toContain("sensitive provider response");
+  });
 });
