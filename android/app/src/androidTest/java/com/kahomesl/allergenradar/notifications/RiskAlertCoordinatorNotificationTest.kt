@@ -1,9 +1,12 @@
 package com.kahomesl.allergenradar.notifications
 
+import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.kahomesl.allergenradar.data.LocationAllergenResponseDto
 import com.kahomesl.allergenradar.data.LocationDto
 import com.kahomesl.allergenradar.data.ObservationDto
@@ -32,6 +35,12 @@ class RiskAlertCoordinatorNotificationTest {
 
     @Before
     fun clearNotifications() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
+                context.packageName,
+                Manifest.permission.POST_NOTIFICATIONS,
+            )
+        }
         manager.cancelAll()
     }
 

@@ -27,7 +27,8 @@ class AndroidOneShotLocationClient(context: Context) : OneShotLocationClient {
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
 
     override suspend fun getCurrentLocation(): OneShotLocationResult {
-        if (!LocationManagerCompat.isLocationEnabled(locationManager) || !LocationManagerCompat.hasProvider(locationManager, LocationManager.NETWORK_PROVIDER)) {
+        val provider = preferredProvider() ?: return OneShotLocationResult.Unavailable
+        if (!LocationManagerCompat.isLocationEnabled(locationManager)) {
             return OneShotLocationResult.Unavailable
         }
         return withTimeoutOrNull(TIMEOUT_MILLIS) {
@@ -37,7 +38,7 @@ class AndroidOneShotLocationClient(context: Context) : OneShotLocationClient {
                 try {
                     LocationManagerCompat.getCurrentLocation(
                         locationManager,
-                        LocationManager.NETWORK_PROVIDER,
+                        provider,
                         cancellationSignal,
                         ContextCompat.getMainExecutor(appContext),
                         Consumer { location ->
@@ -57,7 +58,14 @@ class AndroidOneShotLocationClient(context: Context) : OneShotLocationClient {
         } ?: OneShotLocationResult.TimedOut
     }
 
+    private fun preferredProvider(): String? = when {
+        LocationManagerCompat.hasProvider(locationManager, FUSED_PROVIDER) -> FUSED_PROVIDER
+        LocationManagerCompat.hasProvider(locationManager, LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+        else -> null
+    }
+
     private companion object {
+        const val FUSED_PROVIDER = "fused"
         const val TIMEOUT_MILLIS = 10_000L
     }
 }
