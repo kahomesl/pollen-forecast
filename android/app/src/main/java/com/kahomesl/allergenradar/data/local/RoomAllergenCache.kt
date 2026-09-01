@@ -2,6 +2,7 @@ package com.kahomesl.allergenradar.data.local
 
 import com.kahomesl.allergenradar.data.LocationAllergenResponseDto
 import com.kahomesl.allergenradar.data.LocationDto
+import com.kahomesl.allergenradar.data.HistoryResponseDto
 import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.ObservationTimeDto
 import com.kahomesl.allergenradar.data.RiskDto
@@ -65,6 +66,66 @@ class RoomAllergenCache(
                 observations = dao.observations(cacheKey).map { it.toDto() },
                 providersWithErrors = providerErrors,
             ),
+            cachedAt = metadata.cachedAt,
+            retrievedAt = metadata.retrievedAt,
+        )
+    }
+
+    suspend fun replaceHistory(
+        cacheKey: String,
+        taxonCode: String?,
+        measurementType: String?,
+        response: HistoryResponseDto,
+    ) {
+        val cachedAt = clock()
+        dao.replaceQuery(
+            location = response.location.toCacheEntity(cachedAt),
+            metadata = QueryCacheMetadataEntity(
+                cacheKey = cacheKey,
+                locationId = response.location.id,
+                responseKind = "HISTORY",
+                taxonCode = taxonCode,
+                measurementType = measurementType,
+                cachedAt = cachedAt,
+                retrievedAt = response.observations.maxOfOrNull { it.time.retrievedAt },
+                providersWithErrorsJson = null,
+            ),
+            observations = response.observations.map { it.toCacheEntity(cacheKey, cachedAt) },
+        )
+    }
+
+    suspend fun readHistory(cacheKey: String): CachedValue<HistoryResponseDto>? {
+        val metadata = dao.metadata(cacheKey) ?: return null
+        val locationId = metadata.locationId ?: return null
+        val location = dao.location(locationId) ?: return null
+        return CachedValue(
+            data = HistoryResponseDto(location.toDto(), dao.observations(cacheKey).map { it.toDto() }),
+            cachedAt = metadata.cachedAt,
+            retrievedAt = metadata.retrievedAt,
+        )
+    }
+
+    suspend fun replaceLocations(locations: List<LocationDto>) {
+        val cachedAt = clock()
+        dao.replaceLocations(
+            metadata = QueryCacheMetadataEntity(
+                cacheKey = CacheKey.LOCATIONS,
+                locationId = null,
+                responseKind = "LOCATIONS",
+                taxonCode = null,
+                measurementType = null,
+                cachedAt = cachedAt,
+                retrievedAt = null,
+                providersWithErrorsJson = null,
+            ),
+            locations = locations.map { it.toCacheEntity(cachedAt) },
+        )
+    }
+
+    suspend fun readLocations(): CachedValue<List<LocationDto>>? {
+        val metadata = dao.metadata(CacheKey.LOCATIONS) ?: return null
+        return CachedValue(
+            data = dao.locations().map { it.toDto() },
             cachedAt = metadata.cachedAt,
             retrievedAt = metadata.retrievedAt,
         )
