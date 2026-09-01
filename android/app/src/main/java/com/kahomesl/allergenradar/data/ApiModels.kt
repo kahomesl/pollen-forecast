@@ -39,7 +39,40 @@ data class LocationDto(
     val scope: String,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val parentLocationId: String? = null,
+    val taxonAvailability: List<TaxonAvailabilityDto> = emptyList(),
 )
+
+@Serializable
+data class TaxonAvailabilityDto(
+    val taxonCode: String,
+    val status: TaxonAvailabilityStatusDto,
+    val childScope: String? = null,
+    val childLocationLabel: String? = null,
+)
+
+@Serializable(with = TaxonAvailabilityStatusDtoSerializer::class)
+enum class TaxonAvailabilityStatusDto {
+    UNKNOWN,
+    UNSUPPORTED,
+    CHILD_LOCATION_REQUIRED,
+    SUPPORTED;
+
+    companion object {
+        fun fromWire(value: String?): TaxonAvailabilityStatusDto = entries.firstOrNull { it.name == value } ?: UNKNOWN
+    }
+}
+
+object TaxonAvailabilityStatusDtoSerializer : KSerializer<TaxonAvailabilityStatusDto> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("TaxonAvailabilityStatus", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): TaxonAvailabilityStatusDto =
+        TaxonAvailabilityStatusDto.fromWire(decoder.decodeString())
+
+    override fun serialize(encoder: Encoder, value: TaxonAvailabilityStatusDto) {
+        encoder.encodeString(value.name)
+    }
+}
 
 @Serializable
 data class RiskDto(

@@ -38,6 +38,26 @@ class ApiContractTest {
     }
 
     @Test
+    fun parsesAdditiveTaxonAvailabilityWithoutRequiringLocationNameRules() {
+        val location = json.decodeFromString<LocationDto>("""
+            {
+              "id": "cn-city-beijing",
+              "nameCn": "北京",
+              "scope": "CITY",
+              "taxonAvailability": [{
+                "taxonCode": "ARTEMISIA",
+                "status": "CHILD_LOCATION_REQUIRED",
+                "childScope": "DISTRICT",
+                "childLocationLabel": "北京区县"
+              }]
+            }
+        """.trimIndent())
+
+        assertEquals(TaxonAvailabilityStatusDto.CHILD_LOCATION_REQUIRED, location.taxonAvailability.single().status)
+        assertEquals("北京区县", location.taxonAvailability.single().childLocationLabel)
+    }
+
+    @Test
     fun providerCapabilitiesAreExpressedAsTypedValues() {
         val provider = ProviderDto(
             id = "beijing-pollen",

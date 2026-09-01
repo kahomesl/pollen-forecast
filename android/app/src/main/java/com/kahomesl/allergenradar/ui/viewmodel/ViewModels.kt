@@ -12,6 +12,8 @@ import com.kahomesl.allergenradar.data.RepositoryDataSource
 import com.kahomesl.allergenradar.data.isTemporaryDataFailure
 import com.kahomesl.allergenradar.data.SyncRunDto
 import com.kahomesl.allergenradar.domain.ARTEMISIA_TAXON
+import com.kahomesl.allergenradar.domain.ArtemisiaPresentation
+import com.kahomesl.allergenradar.domain.resolveArtemisiaPresentation
 import com.kahomesl.allergenradar.domain.selectArtemisia
 import com.kahomesl.allergenradar.domain.selectPrimaryTotal
 import com.kahomesl.allergenradar.location.OneShotLocationClient
@@ -37,6 +39,7 @@ inline fun <reified T : ViewModel> viewModelFactory(crossinline create: () -> T)
 
 data class HomeUiState(
     val locationName: String = "北京",
+    val location: LocationDto? = null,
     val isLoading: Boolean = true,
     val total: ObservationDto? = null,
     val artemisia: ObservationDto? = null,
@@ -47,9 +50,17 @@ data class HomeUiState(
     val artemisiaSource: RepositoryDataSource? = null,
     val artemisiaCachedAt: Long? = null,
     val artemisiaOfflineWithoutCache: Boolean = false,
+    val artemisiaProvidersWithErrors: List<String> = emptyList(),
     val errorMessage: String? = null,
 ) {
     val artemisiaUsesCache: Boolean get() = artemisiaSource == RepositoryDataSource.CACHE
+    val artemisiaPresentation: ArtemisiaPresentation get() = resolveArtemisiaPresentation(
+        location = location,
+        observation = artemisia,
+        source = artemisiaSource,
+        temporaryFailure = artemisiaOfflineWithoutCache,
+        providersWithErrors = artemisiaProvidersWithErrors,
+    )
 }
 
 class HomeViewModel(
@@ -84,6 +95,7 @@ class HomeViewModel(
         val taxonMetadata = taxonResult.getOrNull()
         mutableState.value = HomeUiState(
             locationName = totalResult.data.location.nameCn,
+            location = totalResult.data.location,
             isLoading = false,
             total = selectPrimaryTotal(totalResult.data.observations),
             artemisia = taxonResponse?.observations?.let(::selectArtemisia),
@@ -94,6 +106,7 @@ class HomeViewModel(
             artemisiaSource = taxonMetadata?.source,
             artemisiaCachedAt = taxonMetadata?.cachedAt,
             artemisiaOfflineWithoutCache = taxonResult.exceptionOrNull()?.isTemporaryDataFailure() == true,
+            artemisiaProvidersWithErrors = taxonResponse?.providersWithErrors.orEmpty(),
         )
     }
 }
