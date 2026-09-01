@@ -95,12 +95,36 @@ class OfflineFirstAllergenRepositoryTest {
         assertEquals("北京", result.data.single().nameCn)
     }
 
+    @Test
+    fun historyCacheKeysKeepTotalAndArtemisiaHistorySeparate() = runTest {
+        cache.replaceHistory(
+            CacheKey.history("cn-city-beijing", null, null),
+            null,
+            null,
+            HistoryResponseDto(location("cn-city-beijing", "北京"), listOf(observation("history-total", null, "TOTAL", "CURRENT"))),
+        )
+        cache.replaceHistory(
+            CacheKey.history("cn-city-beijing", "ARTEMISIA", null),
+            "ARTEMISIA",
+            null,
+            HistoryResponseDto(location("cn-city-beijing", "北京"), listOf(observation("history-artemisia", TaxonDto("ARTEMISIA", "蒿属", "Artemisia"), "GENUS", "FORECAST"))),
+        )
+        val repository = OfflineFirstAllergenRepository(FakeNetwork(historyFailure = IOException("offline")), cache)
+
+        val total = repository.getHistory("cn-city-beijing")
+        val artemisia = repository.getHistory("cn-city-beijing", taxon = "ARTEMISIA")
+
+        assertEquals("TOTAL", total.data.observations.single().scope)
+        assertEquals("ARTEMISIA", artemisia.data.observations.single().taxon?.code)
+    }
+
     private class FakeNetwork(
         private val totalResponse: LocationAllergenResponseDto = emptyResponse(),
         private val taxonResponse: LocationAllergenResponseDto = emptyResponse(),
         private val taxonFailure: Throwable? = null,
         private val locations: List<LocationDto> = emptyList(),
         private val locationsFailure: Throwable? = null,
+        private val historyFailure: Throwable? = null,
     ) : AllergenRepository {
         override suspend fun getAllergens() = emptyList<AllergenDto>()
         override suspend fun getProviders() = emptyList<ProviderDto>()
@@ -113,8 +137,10 @@ class OfflineFirstAllergenRepositoryTest {
             taxonFailure?.let { throw it }
             return taxonResponse
         }
-        override suspend fun getHistory(locationId: String, taxon: String?, measurementType: String?, limit: Int) =
-            HistoryResponseDto(location(locationId, "北京"))
+        override suspend fun getHistory(locationId: String, taxon: String?, measurementType: String?, limit: Int): HistoryResponseDto {
+            historyFailure?.let { throw it }
+            return HistoryResponseDto(location(locationId, "北京"))
+        }
         override suspend fun getSyncStatus() = SyncStatusResponseDto()
     }
 
