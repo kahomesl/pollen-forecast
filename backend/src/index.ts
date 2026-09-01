@@ -1,18 +1,20 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 
-import sql, { initDB } from "./db";
+import sql, { checkDatabaseConnection, initDB } from "./db";
 import { runScrape, getScrapingStatus, scrapeSingleCity } from "./scraper";
 import { findCityByChineseName, findNearestMajorCity, getCityOptions, majorCities } from "./cityDirectory";
 import { createAllergenV1Api } from "./api/allergenV1";
 import { PollenObservationRepository, type PollenObservationSql } from "./repositories/PollenObservationRepository";
 import { ObservationStore } from "./services/ObservationStore";
 import { PollenScheduler } from "./services/PollenScheduler";
+import { isStartupScrapeEnabled } from "./services/startupScrape";
 import { PollenSyncService } from "./services/PollenSyncService";
 import { pollenProviders } from "./providers/providerRegistry";
 import { SyncRunRepository, type PollenSyncRunSql } from "./repositories/SyncRunRepository";
 import { formatChinaDate } from "./time/chinaDate";
 import path from "path";
+import { checkHealth } from "./health";
 
 const port = process.env.PORT ?? 8080;
 const staticDir = path.join(__dirname, '../../frontend/dist');
@@ -28,13 +30,18 @@ const pollenScheduler = new PollenScheduler({ syncService: pollenSyncService });
 
 // Initialize DB before starting server
 await initDB();
-// The optional scheduler waits for its first interval; legacy startup scraping remains unchanged.
+// The optional scheduler waits for its first interval.
 pollenScheduler.start();
-// Start initial scrape after DB is ready
-runScrape().catch(console.error);
+// Legacy startup scraping is opt-in; manual sync remains available via `bun run sync:pollen`.
+if (isStartupScrapeEnabled()) runScrape().catch(console.error);
 
 const app = new Elysia()
   .use(cors())
+  .get("/health", async ({ set }) => {
+    const health = await checkHealth({ checkDatabase: checkDatabaseConnection });
+    if (!health.database) set.status = 503;
+    return health;
+  })
   .use(createAllergenV1Api({ observationRepository, observationStore, syncRunRepository }))
   // Get all cities metadata (static list + coordinates)
   .get("/api/cities", () => {

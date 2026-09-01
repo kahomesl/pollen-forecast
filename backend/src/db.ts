@@ -66,4 +66,8 @@ export async function initDB() {
   console.log('Database tables initialized.');
 }
 
+export async function checkDatabaseConnection(): Promise<void> {
+  await sql`SELECT 1`;
+}
+
 export default sql;
