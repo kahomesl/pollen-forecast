@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="file" path="datastore/location_preferences.preferences_pb" />
+    <include domain="file" path="datastore/risk_alert_preferences.preferences_pb" />
+    <!-- The include list intentionally omits the Room offline cache. -->
+</full-backup-content>

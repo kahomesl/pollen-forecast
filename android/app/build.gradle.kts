@@ -1,4 +1,6 @@
+import java.net.URI
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -7,7 +9,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-private fun configuredApiBaseUrl(): String {
+private val releaseTaskRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+
+private fun configuredApiBaseUrl(): String? {
     val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.isFile) {
@@ -15,12 +19,29 @@ private fun configuredApiBaseUrl(): String {
     }
     return providers.gradleProperty("API_BASE_URL").orNull
         ?: localProperties.getProperty("API_BASE_URL")
-        ?: if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }) {
-            "https://api.example.invalid/"
-        } else {
-            "http://10.0.2.2:8080/"
-        }
 }
+
+private fun debugApiBaseUrl(): String = configuredApiBaseUrl() ?: "http://10.0.2.2:8080/"
+
+private fun releaseApiBaseUrl(): String {
+    val value = configuredApiBaseUrl()?.trim().orEmpty()
+    if (value.isBlank()) throw GradleException("Release builds require API_BASE_URL with an explicit HTTPS endpoint.")
+    val uri = try {
+        URI(value)
+    } catch (error: Exception) {
+        throw GradleException("Release API_BASE_URL must be a valid HTTPS URL.", error)
+    }
+    val forbiddenHosts = setOf("localhost", "127.0.0.1", "::1", "10.0.2.2", "api.example.invalid")
+    if (uri.scheme != "https" || uri.host.isNullOrBlank() || uri.host.lowercase() in forbiddenHosts) {
+        throw GradleException("Release API_BASE_URL must use HTTPS and cannot point to localhost, 10.0.2.2, or example.invalid.")
+    }
+    return if (value.endsWith('/')) value else "$value/"
+}
+
+private fun requiredReleaseEnvironment(name: String): String = System.getenv(name)?.takeIf(String::isNotBlank)
+    ?: throw GradleException("Release signing requires environment variable $name.")
+
+private val releaseApiBaseUrlForTask = if (releaseTaskRequested) releaseApiBaseUrl() else null
 
 android {
     namespace = "com.kahomesl.allergenradar"
@@ -31,17 +52,35 @@ android {
         applicationId = "com.kahomesl.allergenradar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "0.1.0-beta.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
-        buildConfigField("String", "API_BASE_URL", "\"${configuredApiBaseUrl()}\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseTaskRequested) {
+                val keyStore = file(requiredReleaseEnvironment("ALLERGENRADAR_RELEASE_STORE_FILE"))
+                if (!keyStore.isFile) throw GradleException("Release signing keystore does not exist: $keyStore")
+                storeFile = keyStore
+                storePassword = requiredReleaseEnvironment("ALLERGENRADAR_RELEASE_STORE_PASSWORD")
+                keyAlias = requiredReleaseEnvironment("ALLERGENRADAR_RELEASE_KEY_ALIAS")
+                keyPassword = requiredReleaseEnvironment("ALLERGENRADAR_RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"${debugApiBaseUrl()}\"")
+        }
         release {
+            val apiBaseUrl = releaseApiBaseUrlForTask ?: "https://release-configuration-required.invalid/"
+            buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+            if (releaseTaskRequested) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
