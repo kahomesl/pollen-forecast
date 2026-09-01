@@ -18,12 +18,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install backend dependencies
         run: bun install --frozen-lockfile
+      - name: Audit backend dependencies
+        run: bun audit
       - name: Test backend
         run: bun test
       - name: Typecheck backend
         run: bun run typecheck:backend
       - name: Install web dependencies
         run: bun install --cwd frontend --frozen-lockfile
+      - name: Audit web dependencies
+        run: bun audit --cwd frontend
       - name: Build web
         run: bun run --cwd frontend build
 

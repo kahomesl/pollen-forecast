@@ -21,18 +21,21 @@ function getFingerprint(): string {
   return fp;
 }
 
+function savedScoreForCity(cityEn: string): number | null {
+  const today = new Date().toISOString().split('T')[0];
+  const saved = localStorage.getItem(`pollen_rating_${cityEn}_${today}`);
+  return saved ? parseInt(saved) : null;
+}
+
 export default function PollenRating({ cityEn }: PollenRatingProps) {
+  return <PollenRatingForCity key={cityEn} cityEn={cityEn} />;
+}
+
+function PollenRatingForCity({ cityEn }: PollenRatingProps) {
   const [summary, setSummary] = useState<RatingSummary | null>(null);
-  const [myScore, setMyScore] = useState<number | null>(null);
+  const [myScore, setMyScore] = useState<number | null>(() => savedScoreForCity(cityEn));
   const [hovering, setHovering] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `pollen_rating_${cityEn}_${today}`;
-    const saved = localStorage.getItem(key);
-    if (saved) setMyScore(parseInt(saved));
-  }, [cityEn]);
 
   useEffect(() => {
     fetch(`/api/ratings/${cityEn}`)
