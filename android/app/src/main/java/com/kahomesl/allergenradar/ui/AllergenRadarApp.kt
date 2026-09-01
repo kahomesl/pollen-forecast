@@ -74,6 +74,7 @@ import com.kahomesl.allergenradar.data.SourceDto
 import com.kahomesl.allergenradar.notifications.RiskAlertSettings
 import kotlinx.coroutines.launch
 import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
+import com.kahomesl.allergenradar.ui.screens.PremiumHomeScreen
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryMeasurementFilter
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryTaxonFilter
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryUiState
@@ -140,7 +141,13 @@ fun AllergenRadarApp(container: AppContainer) {
         },
     ) { padding ->
         when (screen) {
-            AppScreen.HOME -> HomeContent(homeState, homeViewModel::refresh, Modifier.padding(padding))
+            AppScreen.HOME -> PremiumHomeScreen(
+                state = homeState,
+                onRefresh = homeViewModel::refresh,
+                onOpenLocations = { screen = AppScreen.LOCATION },
+                onOpenDataInfo = { screen = AppScreen.DATA_INFO },
+                modifier = Modifier.padding(padding),
+            )
             AppScreen.LOCATION -> LocationContent(
                 state = locationState,
                 onRefresh = locationViewModel::refresh,
