@@ -12,14 +12,11 @@ camelCase；列表接口返回 JSON 数组，位置数据使用 canonical `locat
 {
   "id": "weatherdt:cn-city-beijing:2026-08-31:4:CURRENT",
   "locationId": "cn-city-beijing",
-  "taxon": { "code": "ARTEMISIA", "nameCn": "蒿属", "nameEn": "Artemisia" },
   "scope": "TOTAL",
   "measurementType": "CURRENT",
   "value": 4,
-  "minValue": 12,
-  "maxValue": 33,
   "unit": "level",
-  "risk": { "level": 4, "label": "高" },
+  "risk": { "level": 4, "label": "高", "severity": "HIGH" },
   "provider": "weatherdt",
   "source": { "name": "WeatherDT", "url": "https://graph.weatherdt.com/ty/pollen/v2/hfindex.html" },
   "confidence": 3,
@@ -42,7 +39,14 @@ camelCase；列表接口返回 JSON 数组，位置数据使用 canonical `locat
 
 `measurementType` 为 `OBSERVATION`、`CURRENT`、`FORECAST` 或 `ESTIMATE`；
 `scope` 为 `TOTAL`、`CATEGORY`、`FAMILY`、`GENUS` 或 `SPECIES`。单位不能在
-没有换算依据时直接比较。
+没有换算依据时直接比较。WeatherDT TOTAL 记录没有 `taxon`；它不能被解释为
+ARTEMISIA。北京 ARTEMISIA 示例见下面的属级预报接口。
+
+`risk.severity` 是后向兼容的 additive v1 extension，取值为 `UNKNOWN`、`LOW`、
+`MODERATE`、`HIGH` 或 `VERY_HIGH`。它是平台根据数据源已确认等级语义标准化出的
+展示/提醒等级，不是统一浓度、个人医学风险或不同 Provider 原始单位的可比值。
+`risk.level` 与 `risk.label` 继续保留 Provider 原始信息；无法可靠映射时
+`severity` 为 `UNKNOWN`。
 
 ## `GET /api/v1/allergens`
 
@@ -164,7 +168,7 @@ Provider 部分失败仍返回 `200`，`providersWithErrors` 只包含 Provider 
       "minValue": 12,
       "maxValue": 33,
       "unit": "index",
-      "risk": { "level": 2 },
+      "risk": { "level": 2, "severity": "UNKNOWN" },
       "provider": "beijing-pollen",
       "source": { "name": "北京花粉监测" },
       "confidence": 4,

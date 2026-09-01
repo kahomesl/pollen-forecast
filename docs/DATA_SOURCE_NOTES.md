@@ -1,6 +1,6 @@
 # Data Source Notes
 
-Last verified against public responses on 2026-08-31. These notes record
+Last verified against public responses on 2026-09-01. These notes record
 source semantics, not an endorsement of a source's reliability or redistribution
 terms. No credentials, cookies, or keys are stored here.
 
@@ -19,6 +19,12 @@ Endpoint: `https://graph.weatherdt.com/ty/pollen/v2/hfindex.html`
 - `levelCode` is an ordinal risk level. `seasonLevel` supplies ranges and
   symptom-percentage descriptions; the response does not label those ranges
   with a physical concentration unit.
+- Historical public rows directly paired `levelCode` with the corresponding
+  source label: `1=很低`, `2=低`, `3=中`, `4=高`, and `5=很高`. These are the
+  only WeatherDT codes currently normalized to platform severity. `0` is the
+  source's published `未检测到花粉` state and is treated as the platform's
+  lowest (`LOW`) alert/display level; `-1=暂无` is unavailable data and is not
+  normalized.
 
 ### INFERRED
 
@@ -56,6 +62,10 @@ Base host: `https://pollenwechat.bjpws.com`
 - `level` is the source risk level. `/v1/pollen/legends` exposes level/range
   legends for Beijing pollen but does not provide a separate physical unit for
   classified `JKHS` values.
+- The live `JKHS` classified response gave `level=2`, legend color `#f4e7f1`,
+  and a description calling the index `中等`; `/v1/pollen/legends` assigns its
+  own `level=2` the label `较低`. This conflict prevents a reliable mapping from
+  classified Artemisia `level` to normalized severity.
 - The live classification response had `isValid=false`; the provider returns
   no forecast in that case.
 - `latestPollenLevels` and `history24` expose station `hfH`/`hfHLv` total data,
@@ -75,3 +85,6 @@ Base host: `https://pollenwechat.bjpws.com`
   The provider deliberately emits neither `validFrom` nor `validTo`.
 - The formal documentation for classified `baseTime`, `dataTime`, `vti`, and
   title validity semantics is not publicly confirmed.
+- A Beijing `JKHS` normalized severity mapping is unknown until the source
+  resolves the classified-level versus legend-level semantic conflict. Raw
+  `level`, `min`, and `max` remain available but must not be used to guess it.
