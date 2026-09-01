@@ -156,3 +156,6 @@ class OfflineFirstAllergenRepository(
 
 private fun Throwable.isCacheEligible(): Boolean =
     this is IOException || this is ApiException && statusCode in 500..599
+
+internal fun Throwable.isTemporaryDataFailure(): Boolean =
+    this is IOException || this is ApiException && statusCode in 500..599

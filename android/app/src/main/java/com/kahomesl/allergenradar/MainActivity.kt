@@ -9,7 +9,7 @@ import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val container = AppContainer(applicationContext)
+        val container = (application as AllergenRadarApplication).container
         setContent {
             AllergenRadarTheme {
                 AllergenRadarApp(container)

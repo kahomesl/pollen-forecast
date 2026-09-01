@@ -9,6 +9,7 @@ import com.kahomesl.allergenradar.data.LocationDto
 import com.kahomesl.allergenradar.data.LocationPreference
 import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.RepositoryDataSource
+import com.kahomesl.allergenradar.data.isTemporaryDataFailure
 import com.kahomesl.allergenradar.data.SyncRunDto
 import com.kahomesl.allergenradar.domain.ARTEMISIA_TAXON
 import com.kahomesl.allergenradar.domain.selectArtemisia
@@ -18,15 +19,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.io.IOException
 
 internal fun userFacingDataError(error: Throwable): String = when (error) {
     is ApiException -> error.apiError?.message ?: "请求失败（HTTP ${error.statusCode}）"
     else -> "网络连接暂时不可用，请检查网络后重试。"
 }
-
-internal fun Throwable.isTemporaryDataFailure(): Boolean =
-    this is IOException || this is ApiException && statusCode in 500..599
 
 inline fun <reified T : ViewModel> viewModelFactory(crossinline create: () -> T): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
