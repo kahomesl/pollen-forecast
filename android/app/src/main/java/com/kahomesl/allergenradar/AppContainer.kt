@@ -1,15 +1,25 @@
 package com.kahomesl.allergenradar
 
 import android.content.Context
-import com.kahomesl.allergenradar.data.AllergenRepository
+import androidx.room.Room
+import com.kahomesl.allergenradar.data.AllergenDataRepository
 import com.kahomesl.allergenradar.data.ApiClient
 import com.kahomesl.allergenradar.data.DataStoreLocationPreference
 import com.kahomesl.allergenradar.data.LocationPreference
 import com.kahomesl.allergenradar.data.NetworkAllergenRepository
+import com.kahomesl.allergenradar.data.OfflineFirstAllergenRepository
+import com.kahomesl.allergenradar.data.local.AllergenRadarDatabase
+import com.kahomesl.allergenradar.data.local.RoomAllergenCache
 
 class AppContainer(context: Context) {
-    val repository: AllergenRepository = NetworkAllergenRepository(
+    private val database = Room.databaseBuilder(
+        context.applicationContext,
+        AllergenRadarDatabase::class.java,
+        "allergen-radar.db",
+    ).build()
+    private val networkRepository = NetworkAllergenRepository(
         ApiClient.create(BuildConfig.API_BASE_URL, BuildConfig.DEBUG),
     )
+    val repository: AllergenDataRepository = OfflineFirstAllergenRepository(networkRepository, RoomAllergenCache(database))
     val locationPreference: LocationPreference = DataStoreLocationPreference(context)
 }

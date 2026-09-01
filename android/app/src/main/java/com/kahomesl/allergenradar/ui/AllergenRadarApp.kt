@@ -59,6 +59,7 @@ import com.kahomesl.allergenradar.BuildConfig
 import com.kahomesl.allergenradar.data.LocationDto
 import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.ObservationTimeDto
+import com.kahomesl.allergenradar.data.RepositoryDataSource
 import com.kahomesl.allergenradar.data.RiskDto
 import com.kahomesl.allergenradar.data.SourceDto
 import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
@@ -74,6 +75,7 @@ import com.kahomesl.allergenradar.ui.viewmodel.MyUiState
 import com.kahomesl.allergenradar.ui.viewmodel.MyViewModel
 import com.kahomesl.allergenradar.ui.viewmodel.viewModelFactory
 import com.kahomesl.allergenradar.util.formatLocalTime
+import com.kahomesl.allergenradar.util.formatCachedTime
 
 private enum class AppScreen(val label: String) {
     HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"),
@@ -156,13 +158,23 @@ fun HomeContent(state: HomeUiState, onRefresh: () -> Unit, modifier: Modifier = 
         if (state.isLoading) item { LoadingPanel("正在获取当前过敏原数据…") }
         state.errorMessage?.let { message -> item { ErrorPanel(message, onRefresh) } }
         if (!state.isLoading && state.errorMessage == null) {
-            item { ObservationCard("综合花粉", state.total, emptyText = "暂无综合花粉数据") }
+            item {
+                ObservationCard(
+                    title = "综合花粉",
+                    observation = state.total,
+                    emptyText = "暂无综合花粉数据",
+                    cacheLabel = state.totalSource.takeIf { it == RepositoryDataSource.CACHE }?.let { "当前显示离线缓存数据" },
+                    cachedAt = state.totalCachedAt,
+                )
+            }
             item {
                 ObservationCard(
                     title = "蒿属 Artemisia",
                     observation = state.artemisia,
-                    emptyText = "暂无蒿属独立数据",
+                    emptyText = if (state.artemisiaOfflineWithoutCache) "离线且暂无缓存的蒿属数据" else "暂无蒿属独立数据",
                     highlight = true,
+                    cacheLabel = state.artemisiaSource.takeIf { it == RepositoryDataSource.CACHE }?.let { "离线缓存的蒿属数据" },
+                    cachedAt = state.artemisiaCachedAt,
                 )
             }
             if (state.providersWithErrors.isNotEmpty()) {
@@ -180,7 +192,14 @@ fun HomeContent(state: HomeUiState, onRefresh: () -> Unit, modifier: Modifier = 
 }
 
 @Composable
-private fun ObservationCard(title: String, observation: ObservationDto?, emptyText: String, highlight: Boolean = false) {
+private fun ObservationCard(
+    title: String,
+    observation: ObservationDto?,
+    emptyText: String,
+    highlight: Boolean = false,
+    cacheLabel: String? = null,
+    cachedAt: Long? = null,
+) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -189,6 +208,13 @@ private fun ObservationCard(title: String, observation: ObservationDto?, emptyTe
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            cacheLabel?.let { label ->
+                Text(
+                    "${label}${formatCachedTime(cachedAt)?.let { " · 缓存于 $it" }.orEmpty()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             if (observation == null) {
                 Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("没有数据不代表风险为零。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -251,6 +277,9 @@ fun LocationContent(state: LocationUiState, onRefresh: () -> Unit, onSelect: (St
         }
         if (state.isLoading) item { LoadingPanel("正在获取位置列表…") }
         state.errorMessage?.let { item { ErrorPanel(it, onRefresh) } }
+        if (state.source == RepositoryDataSource.CACHE) item {
+            OfflineCacheNotice("当前显示离线缓存位置", state.cachedAt)
+        }
         groupedLocations(visible).forEach { (scope, locations) ->
             item { Text(if (scope == "CITY") "城市" else "北京区县", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)) }
             items(locations, key = { it.id }) { location ->
@@ -300,6 +329,7 @@ fun HistoryContent(
         }
         item { FilterRow(HistoryTaxonFilter.entries.toList(), state.taxonFilter, { it.title }, onTaxonChange) }
         item { FilterRow(HistoryMeasurementFilter.entries.toList(), state.measurementFilter, { it.title }, onMeasurementChange) }
+        if (state.source == RepositoryDataSource.CACHE) item { OfflineCacheNotice("离线历史缓存", state.cachedAt) }
         if (state.isLoading) item { LoadingPanel("正在获取历史数据…") }
         state.errorMessage?.let { item { ErrorPanel(it, onRefresh) } }
         if (!state.isLoading && state.errorMessage == null && state.observations.isEmpty()) item {
@@ -418,6 +448,21 @@ private fun LoadingPanel(label: String) {
 private fun EmptyPanel(label: String) {
     Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
         Text(label, modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun OfflineCacheNotice(label: String, cachedAt: Long?) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Text(
+            "${label}${formatCachedTime(cachedAt)?.let { " · 缓存于 $it" }.orEmpty()}",
+            modifier = Modifier.padding(14.dp),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

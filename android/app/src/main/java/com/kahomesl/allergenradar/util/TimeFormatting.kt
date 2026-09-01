@@ -11,3 +11,7 @@ fun formatLocalTime(isoString: String?): String? = isoString?.let {
         Instant.parse(it).atZone(ZoneId.systemDefault()).format(localDateTimeFormatter)
     }.getOrNull()
 }
+
+fun formatCachedTime(epochMillis: Long?): String? = epochMillis?.let {
+    Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(localDateTimeFormatter)
+}

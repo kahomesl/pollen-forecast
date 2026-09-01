@@ -3,10 +3,12 @@ package com.kahomesl.allergenradar.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kahomesl.allergenradar.data.AllergenRepository
+import com.kahomesl.allergenradar.data.AllergenDataRepository
+import com.kahomesl.allergenradar.data.ApiException
 import com.kahomesl.allergenradar.data.LocationDto
 import com.kahomesl.allergenradar.data.LocationPreference
 import com.kahomesl.allergenradar.data.ObservationDto
+import com.kahomesl.allergenradar.data.RepositoryDataSource
 import com.kahomesl.allergenradar.data.SyncRunDto
 import com.kahomesl.allergenradar.domain.ARTEMISIA_TAXON
 import com.kahomesl.allergenradar.domain.selectArtemisia
@@ -16,9 +18,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.io.IOException
 
-internal fun userFacingDataError(@Suppress("UNUSED_PARAMETER") error: Throwable): String =
-    "网络连接暂时不可用，请检查网络后重试。"
+internal fun userFacingDataError(error: Throwable): String = when (error) {
+    is ApiException -> error.apiError?.message ?: "请求失败（HTTP ${error.statusCode}）"
+    else -> "网络连接暂时不可用，请检查网络后重试。"
+}
+
+internal fun Throwable.isTemporaryDataFailure(): Boolean =
+    this is IOException || this is ApiException && statusCode in 500..599
 
 inline fun <reified T : ViewModel> viewModelFactory(crossinline create: () -> T): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
@@ -33,11 +41,18 @@ data class HomeUiState(
     val artemisia: ObservationDto? = null,
     val providersWithErrors: List<String> = emptyList(),
     val artemisiaError: Boolean = false,
+    val totalSource: RepositoryDataSource? = null,
+    val totalCachedAt: Long? = null,
+    val artemisiaSource: RepositoryDataSource? = null,
+    val artemisiaCachedAt: Long? = null,
+    val artemisiaOfflineWithoutCache: Boolean = false,
     val errorMessage: String? = null,
-)
+) {
+    val artemisiaUsesCache: Boolean get() = artemisiaSource == RepositoryDataSource.CACHE
+}
 
 class HomeViewModel(
-    private val repository: AllergenRepository,
+    private val repository: AllergenDataRepository,
     private val preference: LocationPreference,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(HomeUiState())
@@ -59,20 +74,25 @@ class HomeViewModel(
 
     private suspend fun load(locationId: String) {
         mutableState.value = mutableState.value.copy(isLoading = true, errorMessage = null)
-        val totalResult = runCatching { repository.getLocationAllergens(locationId) }
-        val totalResponse = totalResult.getOrElse { error ->
+        val totalResult = runCatching { repository.getLocationAllergens(locationId) }.getOrElse { error ->
             mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error))
             return
         }
         val taxonResult = runCatching { repository.getLocationTaxon(locationId, ARTEMISIA_TAXON) }
-        val taxonResponse = taxonResult.getOrNull()
+        val taxonResponse = taxonResult.getOrNull()?.data
+        val taxonMetadata = taxonResult.getOrNull()
         mutableState.value = HomeUiState(
-            locationName = totalResponse.location.nameCn,
+            locationName = totalResult.data.location.nameCn,
             isLoading = false,
-            total = selectPrimaryTotal(totalResponse.observations),
+            total = selectPrimaryTotal(totalResult.data.observations),
             artemisia = taxonResponse?.observations?.let(::selectArtemisia),
-            providersWithErrors = (totalResponse.providersWithErrors + (taxonResponse?.providersWithErrors ?: emptyList())).distinct(),
+            providersWithErrors = (totalResult.data.providersWithErrors + (taxonResponse?.providersWithErrors ?: emptyList())).distinct(),
             artemisiaError = taxonResult.isFailure,
+            totalSource = totalResult.source,
+            totalCachedAt = totalResult.cachedAt,
+            artemisiaSource = taxonMetadata?.source,
+            artemisiaCachedAt = taxonMetadata?.cachedAt,
+            artemisiaOfflineWithoutCache = taxonResult.exceptionOrNull()?.isTemporaryDataFailure() == true,
         )
     }
 }
@@ -81,11 +101,13 @@ data class LocationUiState(
     val isLoading: Boolean = true,
     val locations: List<LocationDto> = emptyList(),
     val selectedLocationId: String = "cn-city-beijing",
+    val source: RepositoryDataSource? = null,
+    val cachedAt: Long? = null,
     val errorMessage: String? = null,
 )
 
 class LocationViewModel(
-    private val repository: AllergenRepository,
+    private val repository: AllergenDataRepository,
     private val preference: LocationPreference,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(LocationUiState())
@@ -103,7 +125,7 @@ class LocationViewModel(
     fun refresh() = viewModelScope.launch {
         mutableState.value = mutableState.value.copy(isLoading = true, errorMessage = null)
         runCatching { repository.getLocations() }
-            .onSuccess { locations -> mutableState.value = mutableState.value.copy(isLoading = false, locations = locations) }
+            .onSuccess { result -> mutableState.value = mutableState.value.copy(isLoading = false, locations = result.data, source = result.source, cachedAt = result.cachedAt) }
             .onFailure { error -> mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error)) }
     }
 
@@ -129,11 +151,13 @@ data class HistoryUiState(
     val observations: List<ObservationDto> = emptyList(),
     val taxonFilter: HistoryTaxonFilter = HistoryTaxonFilter.TOTAL,
     val measurementFilter: HistoryMeasurementFilter = HistoryMeasurementFilter.ALL,
+    val source: RepositoryDataSource? = null,
+    val cachedAt: Long? = null,
     val errorMessage: String? = null,
 )
 
 class HistoryViewModel(
-    private val repository: AllergenRepository,
+    private val repository: AllergenDataRepository,
     private val preference: LocationPreference,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(HistoryUiState())
@@ -170,7 +194,8 @@ class HistoryViewModel(
                 taxon = previous.taxonFilter.taxon,
                 measurementType = previous.measurementFilter.measurementType,
             )
-        }.onSuccess { response ->
+        }.onSuccess { result ->
+            val response = result.data
             mutableState.value = mutableState.value.copy(
                 isLoading = false,
                 locationName = response.location.nameCn,
@@ -179,6 +204,8 @@ class HistoryViewModel(
                 } else {
                     response.observations
                 },
+                source = result.source,
+                cachedAt = result.cachedAt,
             )
         }.onFailure { error ->
             mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error))
@@ -194,7 +221,7 @@ data class MyUiState(
 )
 
 class MyViewModel(
-    private val repository: AllergenRepository,
+    private val repository: AllergenDataRepository,
     private val preference: LocationPreference,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(MyUiState())
@@ -212,7 +239,7 @@ class MyViewModel(
 
     fun refresh() = viewModelScope.launch {
         val apiAvailable = runCatching { repository.getProviders() }.isSuccess
-        val locations = runCatching { repository.getLocations() }.getOrDefault(emptyList())
+        val locations = runCatching { repository.getLocations().data }.getOrDefault(emptyList())
         val latestRun = runCatching { repository.getSyncStatus().latestRun }.getOrNull()
         mutableState.value = mutableState.value.copy(
             apiAvailable = apiAvailable,

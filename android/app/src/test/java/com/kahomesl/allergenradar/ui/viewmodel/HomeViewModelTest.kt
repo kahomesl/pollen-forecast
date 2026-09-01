@@ -1,13 +1,15 @@
 package com.kahomesl.allergenradar.ui.viewmodel
 
 import com.kahomesl.allergenradar.data.AllergenDto
-import com.kahomesl.allergenradar.data.AllergenRepository
+import com.kahomesl.allergenradar.data.AllergenDataRepository
 import com.kahomesl.allergenradar.data.LocationDto
 import com.kahomesl.allergenradar.data.LocationAllergenResponseDto
 import com.kahomesl.allergenradar.data.LocationPreference
 import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.ObservationTimeDto
 import com.kahomesl.allergenradar.data.ProviderDto
+import com.kahomesl.allergenradar.data.RepositoryDataSource
+import com.kahomesl.allergenradar.data.RepositoryResult
 import com.kahomesl.allergenradar.data.SourceDto
 import com.kahomesl.allergenradar.data.SyncStatusResponseDto
 import com.kahomesl.allergenradar.data.HistoryResponseDto
@@ -77,13 +79,13 @@ class HomeViewModelTest {
 
     private class FakeRepository(
         private val totalFailure: Throwable? = null,
-    ) : AllergenRepository {
+    ) : AllergenDataRepository {
         override suspend fun getAllergens() = emptyList<AllergenDto>()
         override suspend fun getProviders() = emptyList<ProviderDto>()
-        override suspend fun getLocations() = emptyList<LocationDto>()
-        override suspend fun getLocationAllergens(locationId: String): LocationAllergenResponseDto {
+        override suspend fun getLocations() = RepositoryResult(emptyList<LocationDto>(), RepositoryDataSource.NETWORK)
+        override suspend fun getLocationAllergens(locationId: String): RepositoryResult<LocationAllergenResponseDto> {
             totalFailure?.let { throw it }
-            return LocationAllergenResponseDto(
+            return RepositoryResult(LocationAllergenResponseDto(
                 location = LocationDto(locationId, "北京", "CITY"),
                 observations = listOf(
                     ObservationDto(
@@ -100,15 +102,15 @@ class HomeViewModelTest {
                     ),
                 ),
                 providersWithErrors = listOf("beijing-pollen"),
-            )
+            ), RepositoryDataSource.NETWORK)
         }
 
-        override suspend fun getLocationTaxon(locationId: String, taxon: String) = LocationAllergenResponseDto(
+        override suspend fun getLocationTaxon(locationId: String, taxon: String) = RepositoryResult(LocationAllergenResponseDto(
             location = LocationDto(locationId, "北京", "CITY"),
-        )
+        ), RepositoryDataSource.NETWORK)
 
         override suspend fun getHistory(locationId: String, taxon: String?, measurementType: String?, limit: Int) =
-            HistoryResponseDto(LocationDto(locationId, "北京", "CITY"))
+            RepositoryResult(HistoryResponseDto(LocationDto(locationId, "北京", "CITY")), RepositoryDataSource.NETWORK)
 
         override suspend fun getSyncStatus() = SyncStatusResponseDto()
     }
