@@ -12,3 +12,5 @@ android/local.properties
 !android/app/src/main/java/com/kahomesl/allergenradar/data/**
 !android/app/src/test/java/com/kahomesl/allergenradar/data/
 !android/app/src/test/java/com/kahomesl/allergenradar/data/**
+!android/app/src/androidTest/java/com/kahomesl/allergenradar/data/
+!android/app/src/androidTest/java/com/kahomesl/allergenradar/data/**
