@@ -2,6 +2,13 @@
 
 Phase A 是原生 Jetpack Compose 客户端，使用 Retrofit/OkHttp 访问 `docs/API_V1.md` 定义的只读 API。
 
+## Phase C：离线缓存与后台刷新
+
+客户端使用 Room 保存位置、最近成功的当前查询和历史查询。网络可用时 API 响应（包括空
+`observations`）始终是权威结果；只有 I/O 或 5xx 时才会读取匹配的离线缓存，并在界面中明确
+标识。WorkManager 每两小时仅刷新已选择的位置。详细语义见
+[`docs/OFFLINE_CACHE.md`](docs/OFFLINE_CACHE.md)。
+
 ## 构建环境
 
 - Gradle 9.4.1（项目内 Gradle Wrapper）
