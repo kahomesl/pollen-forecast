@@ -173,7 +173,9 @@ fun HomeContent(state: HomeUiState, onRefresh: () -> Unit, modifier: Modifier = 
                     observation = state.artemisia,
                     emptyText = if (state.artemisiaOfflineWithoutCache) "离线且暂无缓存的蒿属数据" else "暂无蒿属独立数据",
                     highlight = true,
-                    cacheLabel = state.artemisiaSource.takeIf { it == RepositoryDataSource.CACHE }?.let { "离线缓存的蒿属数据" },
+                    cacheLabel = state.artemisiaSource.takeIf { it == RepositoryDataSource.CACHE }?.let {
+                        if (state.artemisia == null) "离线缓存的蒿属查询结果" else "离线缓存的蒿属数据"
+                    },
                     cachedAt = state.artemisiaCachedAt,
                 )
             }
