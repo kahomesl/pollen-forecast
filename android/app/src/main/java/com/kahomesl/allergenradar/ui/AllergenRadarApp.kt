@@ -1,6 +1,8 @@
 package com.kahomesl.allergenradar.ui
 
 import android.Manifest
+import android.content.Intent
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,6 +77,12 @@ import com.kahomesl.allergenradar.notifications.RiskAlertSettings
 import kotlinx.coroutines.launch
 import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
 import com.kahomesl.allergenradar.ui.screens.PremiumHomeScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumLocationScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumHistoryScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumMyScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumDataInfoScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumPrivacyScreen
+import com.kahomesl.allergenradar.ui.screens.PremiumAboutScreen
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryMeasurementFilter
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryTaxonFilter
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryUiState
@@ -91,7 +99,7 @@ import com.kahomesl.allergenradar.util.formatCachedTime
 import java.util.Locale
 
 private enum class AppScreen(val label: String) {
-    HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"), PRIVACY_INFO("隐私与数据来源"),
+    HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"), PRIVACY_INFO("隐私说明"), ABOUT("关于"),
 }
 
 @Composable
@@ -118,13 +126,18 @@ fun AllergenRadarApp(container: AppContainer) {
         else locationPermissionDenied = true
     }
     var screen by remember { mutableStateOf(AppScreen.HOME) }
+    var focusDistricts by remember { mutableStateOf(false) }
 
     if (screen == AppScreen.DATA_INFO) {
-        DataExplanationScreen(onBack = { screen = AppScreen.MY })
+        PremiumDataInfoScreen(onBack = { screen = AppScreen.MY })
         return
     }
     if (screen == AppScreen.PRIVACY_INFO) {
-        PrivacyAndSourcesScreen(onBack = { screen = AppScreen.MY })
+        PremiumPrivacyScreen(onBack = { screen = AppScreen.MY })
+        return
+    }
+    if (screen == AppScreen.ABOUT) {
+        PremiumAboutScreen(onBack = { screen = AppScreen.MY })
         return
     }
 
@@ -144,11 +157,11 @@ fun AllergenRadarApp(container: AppContainer) {
             AppScreen.HOME -> PremiumHomeScreen(
                 state = homeState,
                 onRefresh = homeViewModel::refresh,
-                onOpenLocations = { screen = AppScreen.LOCATION },
+                onOpenLocations = { focusDistricts = true; screen = AppScreen.LOCATION },
                 onOpenDataInfo = { screen = AppScreen.DATA_INFO },
                 modifier = Modifier.padding(padding),
             )
-            AppScreen.LOCATION -> LocationContent(
+            AppScreen.LOCATION -> PremiumLocationScreen(
                 state = locationState,
                 onRefresh = locationViewModel::refresh,
                 onSelect = locationViewModel::select,
@@ -161,23 +174,29 @@ fun AllergenRadarApp(container: AppContainer) {
                     }
                 },
                 onConfirmNearbyLocation = locationViewModel::confirmNearbyLocation,
-                locationPermissionDenied = locationPermissionDenied,
+                permissionDenied = locationPermissionDenied,
+                focusDistricts = focusDistricts,
                 modifier = Modifier.padding(padding),
             )
-            AppScreen.HISTORY -> HistoryContent(
-                historyState,
-                historyViewModel::refresh,
-                historyViewModel::setTaxon,
-                historyViewModel::setMeasurement,
-                Modifier.padding(padding),
+            AppScreen.HISTORY -> PremiumHistoryScreen(
+                state = historyState,
+                onRefresh = historyViewModel::refresh,
+                onTaxonChange = historyViewModel::setTaxon,
+                onMeasurementChange = historyViewModel::setMeasurement,
+                modifier = Modifier.padding(padding),
             )
-            AppScreen.MY -> MyContent(
+            AppScreen.MY -> PremiumMyScreen(
                 state = myState,
                 onRefresh = myViewModel::refresh,
-                onDataInfo = { screen = AppScreen.DATA_INFO },
-                onPrivacyInfo = { screen = AppScreen.PRIVACY_INFO },
+                onOpenLocations = { focusDistricts = false; screen = AppScreen.LOCATION },
+                onOpenDataInfo = { screen = AppScreen.DATA_INFO },
+                onOpenPrivacy = { screen = AppScreen.PRIVACY_INFO },
+                onOpenAbout = { screen = AppScreen.ABOUT },
                 alertSettings = alertSettings,
                 permissionDenied = notificationPermissionDenied,
+                onOpenNotificationSettings = {
+                    context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                },
                 onSettingsChange = { updated -> scope.launch { container.riskAlertPreference.update(updated) } },
                 onAlertsEnabled = { enabled ->
                     if (!enabled) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = false)) }
@@ -186,7 +205,7 @@ fun AllergenRadarApp(container: AppContainer) {
                 },
                 modifier = Modifier.padding(padding),
             )
-            AppScreen.DATA_INFO, AppScreen.PRIVACY_INFO -> Unit
+            AppScreen.DATA_INFO, AppScreen.PRIVACY_INFO, AppScreen.ABOUT -> Unit
         }
     }
 }
