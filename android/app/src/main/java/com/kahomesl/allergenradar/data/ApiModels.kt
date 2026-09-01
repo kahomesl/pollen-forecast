@@ -1,6 +1,12 @@
 package com.kahomesl.allergenradar.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
 @Serializable
 data class TaxonDto(
@@ -39,7 +45,31 @@ data class LocationDto(
 data class RiskDto(
     val level: Int? = null,
     val label: String? = null,
+    val severity: RiskSeverityDto = RiskSeverityDto.UNKNOWN,
 )
+
+@Serializable(with = RiskSeverityDtoSerializer::class)
+enum class RiskSeverityDto {
+    UNKNOWN,
+    LOW,
+    MODERATE,
+    HIGH,
+    VERY_HIGH;
+
+    companion object {
+        fun fromWire(value: String?): RiskSeverityDto = entries.firstOrNull { it.name == value } ?: UNKNOWN
+    }
+}
+
+object RiskSeverityDtoSerializer : KSerializer<RiskSeverityDto> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("RiskSeverity", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): RiskSeverityDto = RiskSeverityDto.fromWire(decoder.decodeString())
+
+    override fun serialize(encoder: Encoder, value: RiskSeverityDto) {
+        encoder.encodeString(value.name)
+    }
+}
 
 @Serializable
 data class SourceDto(

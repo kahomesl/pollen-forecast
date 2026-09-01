@@ -35,6 +35,7 @@ data class ObservationCacheEntity(
     val unit: String,
     val riskLevel: Int?,
     val riskLabel: String?,
+    val riskSeverity: String,
     val provider: String,
     val sourceName: String,
     val sourceUrl: String?,

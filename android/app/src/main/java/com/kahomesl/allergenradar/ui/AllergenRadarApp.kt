@@ -61,6 +61,7 @@ import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.ObservationTimeDto
 import com.kahomesl.allergenradar.data.RepositoryDataSource
 import com.kahomesl.allergenradar.data.RiskDto
+import com.kahomesl.allergenradar.data.RiskSeverityDto
 import com.kahomesl.allergenradar.data.SourceDto
 import com.kahomesl.allergenradar.ui.theme.AllergenRadarTheme
 import com.kahomesl.allergenradar.ui.viewmodel.HistoryMeasurementFilter
@@ -222,13 +223,21 @@ private fun ObservationCard(
                 Text("没有数据不代表风险为零。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(riskLabel(observation), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        riskLabel(observation),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = severityColor(observation.risk.severity),
+                    )
                     Spacer(Modifier.width(12.dp))
                     Text(measurementLabel(observation.measurementType), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 observation.value?.let { value -> Text("指数 ${formatNumber(value)} ${observation.unit.orEmpty()}") }
                 rangeText(observation)?.let { Text(it) }
                 ObservationTimeLines(observation)
+                if (observation.risk.severity == RiskSeverityDto.UNKNOWN) {
+                    Text("风险等级暂未标准化", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text("来源：${observation.source.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -356,7 +365,7 @@ private fun HistoryRow(observation: ObservationDto) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row {
                 Text(observation.taxon?.nameCn ?: "综合花粉", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(riskLabel(observation), color = MaterialTheme.colorScheme.primary)
+                Text(riskLabel(observation), color = severityColor(observation.risk.severity))
             }
             Text(measurementLabel(observation.measurementType))
             formatLocalTime(observation.time.retrievedAt)?.let { Text("数据更新于 $it", style = MaterialTheme.typography.bodySmall) }
@@ -490,6 +499,14 @@ fun measurementLabel(type: String): String = when (type) {
 fun riskLabel(observation: ObservationDto): String = observation.risk.label?.takeIf { it.isNotBlank() }
     ?: observation.risk.level?.let { "等级 $it" }
     ?: "暂无风险等级"
+
+@Composable
+private fun severityColor(severity: RiskSeverityDto) = when (severity) {
+    RiskSeverityDto.VERY_HIGH, RiskSeverityDto.HIGH -> MaterialTheme.colorScheme.error
+    RiskSeverityDto.MODERATE -> MaterialTheme.colorScheme.tertiary
+    RiskSeverityDto.LOW -> MaterialTheme.colorScheme.primary
+    RiskSeverityDto.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+}
 
 private fun rangeText(observation: ObservationDto): String? = when {
     observation.minValue != null && observation.maxValue != null -> "范围 ${formatNumber(observation.minValue)}–${formatNumber(observation.maxValue)} ${observation.unit.orEmpty()}"

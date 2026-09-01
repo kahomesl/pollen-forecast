@@ -9,6 +9,7 @@ import com.kahomesl.allergenradar.data.LocationPreference
 import com.kahomesl.allergenradar.data.NetworkAllergenRepository
 import com.kahomesl.allergenradar.data.OfflineFirstAllergenRepository
 import com.kahomesl.allergenradar.data.local.AllergenRadarDatabase
+import com.kahomesl.allergenradar.data.local.MIGRATION_1_2
 import com.kahomesl.allergenradar.data.local.RoomAllergenCache
 
 class AppContainer(context: Context) {
@@ -16,7 +17,7 @@ class AppContainer(context: Context) {
         context.applicationContext,
         AllergenRadarDatabase::class.java,
         "allergen-radar.db",
-    ).build()
+    ).addMigrations(MIGRATION_1_2).build()
     private val networkRepository = NetworkAllergenRepository(
         ApiClient.create(BuildConfig.API_BASE_URL, BuildConfig.DEBUG),
     )

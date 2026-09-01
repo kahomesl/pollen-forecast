@@ -6,6 +6,7 @@ import com.kahomesl.allergenradar.data.HistoryResponseDto
 import com.kahomesl.allergenradar.data.ObservationDto
 import com.kahomesl.allergenradar.data.ObservationTimeDto
 import com.kahomesl.allergenradar.data.RiskDto
+import com.kahomesl.allergenradar.data.RiskSeverityDto
 import com.kahomesl.allergenradar.data.SourceDto
 import com.kahomesl.allergenradar.data.TaxonDto
 import kotlinx.serialization.json.Json
@@ -158,6 +159,7 @@ private fun ObservationDto.toCacheEntity(cacheKey: String, cachedAt: Long) = Obs
     unit = unit,
     riskLevel = risk.level,
     riskLabel = risk.label,
+    riskSeverity = risk.severity.name,
     provider = provider,
     sourceName = source.name,
     sourceUrl = source.url,
@@ -179,7 +181,7 @@ private fun ObservationCacheEntity.toDto() = ObservationDto(
     minValue = minValue,
     maxValue = maxValue,
     unit = unit,
-    risk = RiskDto(riskLevel, riskLabel),
+    risk = RiskDto(riskLevel, riskLabel, RiskSeverityDto.fromWire(riskSeverity)),
     provider = provider,
     source = SourceDto(sourceName, sourceUrl),
     confidence = confidence,
