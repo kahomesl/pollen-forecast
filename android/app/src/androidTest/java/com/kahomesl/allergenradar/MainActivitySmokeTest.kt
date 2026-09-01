@@ -1,6 +1,7 @@
 package com.kahomesl.allergenradar
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -61,6 +62,7 @@ class MainActivitySmokeTest {
 
         composeRule.activity.onBackPressedDispatcher.onBackPressed()
 
-        composeRule.onNodeWithText("数据说明").assertIsDisplayed()
+        composeRule.onAllNodesWithText("综合花粉不等于蒿属").assertCountEquals(0)
+        composeRule.onNodeWithText("最近同步").assertIsDisplayed()
     }
 }
