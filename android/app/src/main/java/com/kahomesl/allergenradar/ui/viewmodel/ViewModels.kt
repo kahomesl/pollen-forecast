@@ -14,6 +14,10 @@ import com.kahomesl.allergenradar.data.SyncRunDto
 import com.kahomesl.allergenradar.domain.ARTEMISIA_TAXON
 import com.kahomesl.allergenradar.domain.selectArtemisia
 import com.kahomesl.allergenradar.domain.selectPrimaryTotal
+import com.kahomesl.allergenradar.location.OneShotLocationClient
+import com.kahomesl.allergenradar.location.OneShotLocationResult
+import com.kahomesl.allergenradar.location.SupportedLocationMatch
+import com.kahomesl.allergenradar.location.SupportedLocationMatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -101,11 +105,21 @@ data class LocationUiState(
     val source: RepositoryDataSource? = null,
     val cachedAt: Long? = null,
     val errorMessage: String? = null,
+    val nearbyCandidate: NearbyLocationCandidate? = null,
+    val nearbyMessage: String? = null,
+    val isFindingNearby: Boolean = false,
+)
+
+data class NearbyLocationCandidate(
+    val match: SupportedLocationMatch,
+    val source: RepositoryDataSource?,
 )
 
 class LocationViewModel(
     private val repository: AllergenDataRepository,
     private val preference: LocationPreference,
+    private val oneShotLocationClient: OneShotLocationClient,
+    private val matcher: SupportedLocationMatcher = SupportedLocationMatcher(),
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(LocationUiState())
     val state: StateFlow<LocationUiState> = mutableState.asStateFlow()
@@ -126,7 +140,46 @@ class LocationViewModel(
             .onFailure { error -> mutableState.value = mutableState.value.copy(isLoading = false, errorMessage = userFacingDataError(error)) }
     }
 
-    fun select(locationId: String) = viewModelScope.launch { preference.setSelectedLocationId(locationId) }
+    fun select(locationId: String) = viewModelScope.launch {
+        preference.setSelectedLocationId(locationId)
+        mutableState.value = mutableState.value.copy(nearbyCandidate = null, nearbyMessage = null)
+    }
+
+    fun findNearbySupportedLocation() = viewModelScope.launch {
+        val current = mutableState.value
+        if (current.locations.isEmpty()) {
+            mutableState.value = current.copy(nearbyMessage = "位置列表尚未准备好，可继续手动选择位置。")
+            return@launch
+        }
+        mutableState.value = current.copy(isFindingNearby = true, nearbyCandidate = null, nearbyMessage = null)
+        when (val result = oneShotLocationClient.getCurrentLocation()) {
+            is OneShotLocationResult.Available -> {
+                val match = matcher.match(result.coordinates.latitude, result.coordinates.longitude, current.locations)
+                mutableState.value = current.copy(
+                    isFindingNearby = false,
+                    nearbyCandidate = match?.let { NearbyLocationCandidate(it, current.source) },
+                    nearbyMessage = if (match == null) "当前位置附近暂无支持的花粉数据，可继续手动选择位置。" else null,
+                )
+            }
+            OneShotLocationResult.TimedOut -> mutableState.value = current.copy(
+                isFindingNearby = false,
+                nearbyMessage = "获取当前位置超时，可继续手动选择位置。",
+            )
+            OneShotLocationResult.Unavailable -> mutableState.value = current.copy(
+                isFindingNearby = false,
+                nearbyMessage = "暂时无法获取当前位置，可继续手动选择位置。",
+            )
+        }
+    }
+
+    fun confirmNearbyLocation() = viewModelScope.launch {
+        val candidate = mutableState.value.nearbyCandidate ?: return@launch
+        preference.setSelectedLocationId(candidate.match.location.id)
+        mutableState.value = mutableState.value.copy(
+            nearbyCandidate = null,
+            nearbyMessage = "已选择附近支持位置：${candidate.match.location.nameCn}",
+        )
+    }
 }
 
 enum class HistoryTaxonFilter(val title: String, val taxon: String?) {

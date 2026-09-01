@@ -13,6 +13,8 @@ import com.kahomesl.allergenradar.data.local.MIGRATION_1_2
 import com.kahomesl.allergenradar.data.local.RoomAllergenCache
 import com.kahomesl.allergenradar.notifications.DataStoreRiskAlertPreference
 import com.kahomesl.allergenradar.notifications.RiskAlertPreference
+import com.kahomesl.allergenradar.location.AndroidOneShotLocationClient
+import com.kahomesl.allergenradar.location.OneShotLocationClient
 
 class AppContainer(context: Context) {
     private val database = Room.databaseBuilder(
@@ -25,5 +27,6 @@ class AppContainer(context: Context) {
     )
     val repository: AllergenDataRepository = OfflineFirstAllergenRepository(networkRepository, RoomAllergenCache(database))
     val locationPreference: LocationPreference = DataStoreLocationPreference(context)
+    val oneShotLocationClient: OneShotLocationClient = AndroidOneShotLocationClient(context)
     val riskAlertPreference: RiskAlertPreference = DataStoreRiskAlertPreference(context)
 }

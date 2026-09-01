@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -55,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -85,6 +87,7 @@ import com.kahomesl.allergenradar.ui.viewmodel.MyViewModel
 import com.kahomesl.allergenradar.ui.viewmodel.viewModelFactory
 import com.kahomesl.allergenradar.util.formatLocalTime
 import com.kahomesl.allergenradar.util.formatCachedTime
+import java.util.Locale
 
 private enum class AppScreen(val label: String) {
     HOME("首页"), LOCATION("位置"), HISTORY("历史"), MY("我的"), DATA_INFO("数据说明"),
@@ -93,7 +96,7 @@ private enum class AppScreen(val label: String) {
 @Composable
 fun AllergenRadarApp(container: AppContainer) {
     val homeViewModel: HomeViewModel = viewModel(factory = viewModelFactory { HomeViewModel(container.repository, container.locationPreference) })
-    val locationViewModel: LocationViewModel = viewModel(factory = viewModelFactory { LocationViewModel(container.repository, container.locationPreference) })
+    val locationViewModel: LocationViewModel = viewModel(factory = viewModelFactory { LocationViewModel(container.repository, container.locationPreference, container.oneShotLocationClient) })
     val historyViewModel: HistoryViewModel = viewModel(factory = viewModelFactory { HistoryViewModel(container.repository, container.locationPreference) })
     val myViewModel: MyViewModel = viewModel(factory = viewModelFactory { MyViewModel(container.repository, container.locationPreference) })
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
@@ -102,10 +105,16 @@ fun AllergenRadarApp(container: AppContainer) {
     val myState by myViewModel.state.collectAsStateWithLifecycle()
     val alertSettings by container.riskAlertPreference.settings.collectAsStateWithLifecycle(RiskAlertSettings())
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var notificationPermissionDenied by remember { mutableStateOf(false) }
+    var locationPermissionDenied by remember { mutableStateOf(false) }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) scope.launch { container.riskAlertPreference.update(alertSettings.copy(enabled = true)) }
         else notificationPermissionDenied = true
+    }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) locationViewModel.findNearbySupportedLocation()
+        else locationPermissionDenied = true
     }
     var screen by remember { mutableStateOf(AppScreen.HOME) }
 
@@ -128,7 +137,22 @@ fun AllergenRadarApp(container: AppContainer) {
     ) { padding ->
         when (screen) {
             AppScreen.HOME -> HomeContent(homeState, homeViewModel::refresh, Modifier.padding(padding))
-            AppScreen.LOCATION -> LocationContent(locationState, locationViewModel::refresh, locationViewModel::select, Modifier.padding(padding))
+            AppScreen.LOCATION -> LocationContent(
+                state = locationState,
+                onRefresh = locationViewModel::refresh,
+                onSelect = locationViewModel::select,
+                onUseCurrentLocation = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        locationPermissionDenied = false
+                        locationViewModel.findNearbySupportedLocation()
+                    } else {
+                        locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                },
+                onConfirmNearbyLocation = locationViewModel::confirmNearbyLocation,
+                locationPermissionDenied = locationPermissionDenied,
+                modifier = Modifier.padding(padding),
+            )
             AppScreen.HISTORY -> HistoryContent(
                 historyState,
                 historyViewModel::refresh,
@@ -282,7 +306,15 @@ private fun SemanticsNote() {
 }
 
 @Composable
-fun LocationContent(state: LocationUiState, onRefresh: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun LocationContent(
+    state: LocationUiState,
+    onRefresh: () -> Unit,
+    onSelect: (String) -> Unit,
+    onUseCurrentLocation: () -> Unit = {},
+    onConfirmNearbyLocation: () -> Unit = {},
+    locationPermissionDenied: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     var query by remember { mutableStateOf("") }
     val visible = state.locations.filter { it.nameCn.contains(query, ignoreCase = true) }
     LazyColumn(
@@ -305,6 +337,30 @@ fun LocationContent(state: LocationUiState, onRefresh: () -> Unit, onSelect: (St
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        item {
+            Button(onClick = onUseCurrentLocation, enabled = !state.isFindingNearby) {
+                Text(if (state.isFindingNearby) "正在获取当前位置…" else "使用当前位置")
+            }
+        }
+        if (locationPermissionDenied) item {
+            Text("定位权限未开启，可继续手动选择位置。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        state.nearbyMessage?.let { message -> item {
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        } }
+        state.nearbyCandidate?.let { candidate -> item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(14.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("附近支持位置：${candidate.match.location.nameCn}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("约 ${String.format(Locale.ROOT, "%.1f", candidate.match.distanceKm)} km", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (candidate.source == RepositoryDataSource.CACHE) {
+                        Text("基于离线缓存的位置列表匹配", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Text("这是最近的支持位置，不代表行政区边界识别。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = onConfirmNearbyLocation) { Text("使用此位置") }
+                }
+            }
+        } }
         if (state.isLoading) item { LoadingPanel("正在获取位置列表…") }
         state.errorMessage?.let { item { ErrorPanel(it, onRefresh) } }
         if (state.source == RepositoryDataSource.CACHE) item {
